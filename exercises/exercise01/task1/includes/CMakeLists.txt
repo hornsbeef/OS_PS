@@ -1,0 +1,1 @@
+target_sources(main PRIVATE colorfull_print.h memory_tracking.c memory_tracking.h testing.h testing.c)

@@ -1,0 +1,5 @@
+/home/andy/Nextcloud/Com_Science_Studies/2Sem/BS_PS/c11_project/exercise01/task1/cmake-build-debug/CMakeFiles/main.dir
+/home/andy/Nextcloud/Com_Science_Studies/2Sem/BS_PS/c11_project/exercise01/task1/cmake-build-debug/CMakeFiles/edit_cache.dir
+/home/andy/Nextcloud/Com_Science_Studies/2Sem/BS_PS/c11_project/exercise01/task1/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/home/andy/Nextcloud/Com_Science_Studies/2Sem/BS_PS/c11_project/exercise01/task1/cmake-build-debug/includes/CMakeFiles/edit_cache.dir
+/home/andy/Nextcloud/Com_Science_Studies/2Sem/BS_PS/c11_project/exercise01/task1/cmake-build-debug/includes/CMakeFiles/rebuild_cache.dir

@@ -1,0 +1,12 @@
+history -p \!290 > args.txt
+
+expaination: history shows the used commands with a line-number: number 290 was my used command. 
+-p prints the command but does not execute it. 
+
+\!290 references line 290, \is used for escaping ! , would otherwise execute command 290. 
+
+> args.txt pipes output from stdout to file args.txt 
+
+
+
+( for run.txt: same could have been achieved with source args.txt ) 
