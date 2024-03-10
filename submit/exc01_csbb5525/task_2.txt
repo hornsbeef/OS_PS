@@ -1,0 +1,98 @@
+
+Looking around, changing directory 
+	pwd	print working directory : prints path to current directory
+	ls	list : shows files in specified directory. default directory = . -> meaning current directory
+	cd	change directory
+
+Creating files and directories 
+	touch	creates file with specified name | updates timestamp
+	mkdir	creates directory
+
+Copying, moving, deleting files and directories 
+	cp	copy
+	mv	move | rename
+	rm	remove -> truely deleted (no recycling bin|undo)
+
+
+Filtering an input 
+	grep	for finding patterns : eg:	 history | grep "ssh"
+
+Redirect output of a command:
+	>	stdout	 (e.g. ls > text.txt)		> will overwrite; >> will append to file
+	<	stdin
+	2>	stderr			ls test1.txt nope > out.txt 2>&1	(stdout is redicted to out.txt, and stderr is redicted to stdout -> out.txt) 	
+	
+
+Chaining commands with a pipe:  |
+	A | B		 (e.g. ls | grep "txt")
+
+
+Using a terminal text editor (nano)
+        ^X means pressing CTRL + x
+
+
+Viewing history of previously used commands 
+	history		– shows a log of all commands, numbered
+	!!		– re-executes the last command
+	!-2		– re-executes the second last command
+	!<number>	– re-executes the x-th last command
+	!xt		– re-executes the last command that starts with xt
+
+	A ; B		will first execute A and then B (always)
+	A && B 		will first execute A and then B if A was successful
+	A || B		will first execute A and then B if A was NOT successful
+	{ ... } 	groups multiple commands, returns exit status of last command
+	{A || B; } && C	 vs   A || { B && C; }		(note the required trailing semicolon)
+
+
+Print content of a file 
+	cat
+
+Getting help
+        man 	to view the manual (man) page of a command
+        help 	to get information on shell built-ins (e.g. help cd) Try this if there is no man page available
+        info 	to view the info page of a command This can sometimes give you more information than the man page
+        apropos to search for man pages was not working on zid, but worked on personal linux machine...
+        tldr	to see short explaination of what a command is all about
+	
+	Appending --help to a command (e.g. ls --help)
+
+Next, read the following man pages to get a better understanding of your surroundings:
+
+    Read man intro
+    Skim over man man-pages, take note of the sections
+	Sections of the manual pages
+       	The manual Sections are traditionally defined as follows:
+
+       1 User commands (Programs)
+              Commands that can be executed by the user from within a shell.
+
+       2 System calls
+              Functions which wrap operations performed by the kernel.
+
+       3 Library calls
+              All library functions excluding the system call wrappers (Most of the libc functions).
+
+       4 Special files (devices)
+              Files found in /dev which allow to access to devices through the kernel.
+
+       5 File formats and configuration files
+              Describes various human-readable file formats and configuration files.
+
+       6 Games
+              Games and funny little programs available on the system.
+
+       7 Overview, conventions, and miscellaneous
+              Overviews or descriptions of various topics, conventions and protocols, character set standards, the standard filesystem layout, and miscellaneous other things.
+
+       8 System management commands
+              Commands like mount(8), many of which only root can execute.
+
+    Skim over man file-hierarchy
+
+
+
+	
+    Figure out the difference between man printf and man 3 printf
+	man 3 printf checks the section 3 (library calls) -> for printf() in C programming
+	man printf show the man page of section 1 (a user command, usable in the shell)
