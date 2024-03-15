@@ -28,7 +28,9 @@ goodbye: goodbye.c
 clean:
 	-rm $(files_to_clean)
 
-main.c:
+main.c: create_main
+
+create_main:
 	$(file > main.c,$(make_code))
 
 define make_code
