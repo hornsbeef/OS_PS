@@ -1,0 +1,3 @@
+for sigaction:
+    signum can be any valid signal except SIGKILL and SIGSTOP !
+    -> these signals 
