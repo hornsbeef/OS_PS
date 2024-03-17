@@ -1,3 +1,4 @@
+MAKEFLAGS += --silent
 .PHONY: clean clean_old $(SUBDIRS) zip number zipname
 
 
@@ -11,18 +12,18 @@ clean:
 
 number := $(shell pwd|rev|cut -c 1-2|rev)
 zipname := exc$(number)_csbb5525.zip
-zip_ignored := ".idea*" "__MACOSX" ".DS_Store" "./README.md"
+zip_ignored := "*.idea*" "__MACOSX" ".DS_Store" "./README.md"
 
 zip:
 	@echo "exercise number: "$(number)
 	@echo "checking if "$(zipname)" already exists and removing it..."
-	-rm -v $(zipname)
+	-rm -f $(zipname)
 	@echo "creating: "$(zipname)
 	-zip -r $(zipname) . -x $(zip_ignored)
 
 zip_remove:
 	@echo "removing "$(zipname)
-	-rm -v $(zipname)
+	-rm -f $(zipname)
 
 #https://stackoverflow.com/questions/17834582/run-make-in-each-subdirectory
 #https://linuxcommand.org/lc3_man_pages/forh.html

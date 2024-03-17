@@ -14,11 +14,6 @@ void sighandler_funct(int signum){
     char* msg = "The following signal was recived: ";
     write(STDOUT_FILENO, msg, strlen(msg));
 
-    //sprintf is NOT an async-signal-safe function
-    //char sig[10];
-    //sprintf(sig, "%d", signum);
-    //write(STDOUT_FILENO, sig, strlen(sig));
-
     char buffer[20];
     switch (signum){
         case 2: strcpy(buffer, "2 = SIGINT");break;
@@ -27,6 +22,7 @@ void sighandler_funct(int signum){
         case 12: strcpy(buffer, "12 = SIGUSR2");break;
         case 18: strcpy(buffer, "18 = SIGCONT");break;
         case 19: strcpy(buffer, "19 = SIGSTOP");break;  //cannot be handled by sigaction ?
+        default: strcpy(buffer, "SIGNAL NOT ON LIST"); break; //if no other case sticks
     }
     write(STDOUT_FILENO, buffer, strlen(buffer));
 

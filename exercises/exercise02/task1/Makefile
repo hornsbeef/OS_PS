@@ -26,7 +26,7 @@ goodbye: goodbye.c
 
 .PHONY: clean main.c
 clean:
-	-rm $(files_to_clean)
+	-rm -f $(files_to_clean)
 
 main.c: create_main
 

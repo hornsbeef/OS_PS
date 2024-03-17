@@ -1,3 +1,45 @@
+Read through:
+    sigaction(2); done;
+    signal(7); done;
+    signal-safety(7); done;
+    SIG30-C; done; (simmilar to signal-safety)
+    SIG31-C; done; (about volatile sig_atomic_t;
+
+Difference between SIGINT and SIGKILL:
+SIGINT:
+    Interrupt: can be caught and handled by process-> allows necessary cleanup
+    / graceful termination.
+SIGKILL:
+    Kills: immediate termination; can NOT be caught/blocked/ignored. (same for SIGSTOP)
+        -> no cleanup action possible
+
+What happes when you press Ctrl + c while the program is running?
+-> sends SIGINT to process
+
+What can SIGSTOP and SIGCONT be used for?
+SIGSTOP:
+    immediately forces process into paused state;
+    -> for temporarily halting a process without completely terminating it.
+        (frees up system resources)
+    used with Ctrl + z
+
+
+SIGCONT:
+    when process has been stopped by SIGSTOP ->
+    SIGCONT -> process continues execution form point where it was stopped
+
+SIGSTOP & SIGCONT used by Debugger
+
+
+
 for sigaction:
     signum can be any valid signal except SIGKILL and SIGSTOP !
-    -> these signals 
+    -> these signals
+
+sprintf is NOT an async-signal-safe function.
+therefore the following code was removed from my signal_handler_funct
+//char sig[10];
+//sprintf(sig, "%d", signum);
+//write(STDOUT_FILENO, sig, strlen(sig));
+
+strcpy() is signal_safe as of POSIX.1-2008
