@@ -1,4 +1,4 @@
-# Install script for directory: /home/andy/Nextcloud/Com_Science_Studies/2Sem/BS_PS/c11_project/exercise01/task1/includes
+# Install script for directory: /home/andy/Nextcloud/Com_Science_Studies/2Sem/BS_PS/git/OS_PS/exercises/exercise01/task1/includes
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

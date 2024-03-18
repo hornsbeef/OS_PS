@@ -1,6 +1,6 @@
 # ninja log v5
-1	27	1710112047797625695	CMakeFiles/main.dir/includes/testing.c.o	fbc1d0dbf5a713b8
 1	38	1710112047809625766	CMakeFiles/main.dir/includes/memory_tracking.c.o	84ec48a1a6e64da7
 1	44	1710112047817625813	CMakeFiles/main.dir/addressbook.c.o	2aa35946673d6ae0
-0	52	1710112047825625860	CMakeFiles/main.dir/main.c.o	b0f6608c46c541b4
+1	27	1710112047797625695	CMakeFiles/main.dir/includes/testing.c.o	fbc1d0dbf5a713b8
 52	69	1710112047841625955	main	810785670a062522
+0	52	1710112047825625860	CMakeFiles/main.dir/main.c.o	b0f6608c46c541b4

@@ -1,4 +1,4 @@
-# Install script for directory: /home/andy/Nextcloud/Com_Science_Studies/2Sem/BS_PS/c11_project/exercise01/task1
+# Install script for directory: /home/andy/Nextcloud/Com_Science_Studies/2Sem/BS_PS/git/OS_PS/exercises/exercise01/task1
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -44,7 +44,7 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/home/andy/Nextcloud/Com_Science_Studies/2Sem/BS_PS/c11_project/exercise01/task1/cmake-build-debug/includes/cmake_install.cmake")
+  include("/home/andy/Nextcloud/Com_Science_Studies/2Sem/BS_PS/git/OS_PS/exercises/exercise01/task1/cmake-build-debug/includes/cmake_install.cmake")
 endif()
 
 if(CMAKE_INSTALL_COMPONENT)
@@ -55,5 +55,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/home/andy/Nextcloud/Com_Science_Studies/2Sem/BS_PS/c11_project/exercise01/task1/cmake-build-debug/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/home/andy/Nextcloud/Com_Science_Studies/2Sem/BS_PS/git/OS_PS/exercises/exercise01/task1/cmake-build-debug/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
