@@ -1,102 +1,91 @@
-
-#include <stdlib.h>
-#include <stdio.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
 
+#define BILLION 1E9
+
 double DR_p(int T, int64_t S) {
-    int64_t hit_count = 0;
-    for (int64_t i = 0; i < S; ++i) {
-        const int roll = rand() % 6 + 1;    //should use srand here?
-        if (roll == T) {
-            hit_count++;
-        }
-    }
-    return (double)hit_count / S;
+	int64_t hit_count = 0;
+	for (int64_t i = 0; i < S; ++i) {
+		const int roll = rand() % 6 + 1;
+		if (roll == T) {
+			hit_count++;
+		}
+	}
+	return (double)hit_count / S;
 }
 
-void child_funct(int T, int64_t S, struct timespec start_time){
+int main(int argc, char* argv[]) {
 
-}
+	if (argc < 2 || argc > 3) { // still testing right coditions...
+	USAGE:
+		fprintf(stderr, "usage: ./"__FILE__
+		                " <N child processes> <S steps> \n");
+		return EXIT_FAILURE;
+	}
+	char* end = NULL;
+	long N = strtol(argv[1], &end, 10);
+	if (*(char*)end != '\0') {
+		goto USAGE;
+	}
+	end = NULL;
+	int64_t S = strtol(argv[2], &end, 10);
+	if (*(char*)end != '\0') {
+		goto USAGE;
+	}
+	////////////////////////////////////////////////////////////
+	// actual fork implementation:
 
+	// timer start:
+	struct timespec start_time;
+	clock_gettime(CLOCK_REALTIME, &start_time);
 
-int main (int argc, char* argv[]){
+	int PID = -1;
+	int i;
+	// N = 3
+	for (i = 0; i < N; i++) {
+		// while(i<N){
+		if (PID == 0) {
+			// this is child:
+			break;
+		} else {
+			// this is parent:
+			PID = fork();
+			// printf("this is parent number: %d! -> creating FORK: %d\n", PID, i+1);
+		}
+	}
 
-    if (argc <2 || argc > 3){   //still testing right coditions...
-        USAGE:
-            fprintf(stderr, "usage: ./"__FILE__ " <N child processes> <S steps> \n");
-            return EXIT_FAILURE;
-    }
+	if (PID == 0) {
+		srand(getpid()); // seeding rand(); -> in child-process, not parent! because parent-pid stays
+		                 // the same!
+		int T = rand() % 6 + 1; // create random T for child
+		int child_number = i;
+		pid_t child_PID = getpid();
 
+		double probability = DR_p(T, S);
 
-    char* end = NULL;
-    long N = strtol(argv[1], &end, 10);
-    if(*(char*)end != '\0'){
-        goto USAGE;
-    }
-    end = NULL;
-    int64_t S = strtol(argv[2], &end, 10);
-    if(*(char*)end != '\0'){
-        goto USAGE;
-    }
+		struct timespec end_time;
+		clock_gettime(CLOCK_REALTIME, &end_time);
 
-    //TODO: DEBUB:
-    //printf("%d", N);
-    //printf("%d", S);
+		double time_elapsed = (end_time.tv_sec - start_time.tv_sec) +
+		                      ((end_time.tv_nsec - start_time.tv_nsec) / (double)BILLION);
 
-    struct timespec start_time;
-    clock_gettime(CLOCK_REALTIME, &start_time);
+		printf("Child %d PID = %d. DR_p(%d,%ld) = %f. Elapsed time = %f (s).\n", child_number,
+		       child_PID, T, S, probability, time_elapsed);
+	}
 
-    //TODO:DEBUG:
-    //printf("sec: %ld", start_time.tv_sec);
+	if (PID != 0) {
+		while (N >= 0) { // waiting for all child processes; important: "If a child has already changed
+			               // state, then these calls return immediately."
+			wait(NULL); // because I'm not interested in the status
+			N--;
+		}
 
+		printf("Done.");
+	}
 
-    int PID = -1;
-
-
-    for(int i = 0; i <= N; i++){
-        if(PID == 0 ){
-            //this is child:
-
-            srand(getpid());
-            int T = rand() % 6 +1;      //create random T for child
-            //-> ? should use srand here?
-
-/*
-Notice that the function DR_p uses rand(3) to repeatedly generate pseudo-random numbers.
-By default, this function returns the same sequence of numbers every time.
-To get different estimates from each process, seed the random number generator using srand(getpid()).
-Does it matter whether you do this before or after the call to fork()? Explain your answer.
-
-*/
-
-            int child_number = i;
-
-            int child_PID = getpid();
-
-            int probability = DR_p(T, S);
-
-            printf("Child %d PID = %d. DR_p(%d,%ld) = %d. Elapsed time = <t> (s).\n", child_number, child_PID, T, S, probability,  );
-
-            //todo: must exit? and not continue in for loop!
-            //temporary:
-
-
-
-
-            break;
-        }else{
-            //this is parent:
-            PID = fork();
-
-
-
-        }
-    }
-        //todo: for parent: wait() or waitpid();
-
-
-
-
+	return EXIT_SUCCESS;
 }
