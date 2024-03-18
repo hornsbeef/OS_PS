@@ -23,10 +23,10 @@ void child_funct(int T, int64_t S, struct timespec start_time){
 
 int main (int argc, char* argv[]){
 
-    if (argc <2 || argc > 3){
+    if (argc <2 || argc > 3){   //still testing right coditions...
         USAGE:
-            fprintf(stderr, "usage: ./"__FILE__ " <N child processes> <S steps> ");
-            EXIT_FAILURE;
+            fprintf(stderr, "usage: ./"__FILE__ " <N child processes> <S steps> \n");
+            return EXIT_FAILURE;
     }
 
 
@@ -79,7 +79,7 @@ int main (int argc, char* argv[]){
 
         }
     }
-        //todo: for parent: wait() or waitpid();  
+        //todo: for parent: wait() or waitpid();
 
 
 
