@@ -4,4 +4,4 @@ project(task3 C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -std=c11")
 
-add_executable(task3)
+add_executable(task3 task3.c)
