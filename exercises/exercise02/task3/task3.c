@@ -85,7 +85,7 @@ int main(int argc, char* argv[]) {
 			N--;
 		}
 
-		printf("Done.");
+		printf("Done.\n");
 	}
 	//branch2 comment
 	return EXIT_SUCCESS;
