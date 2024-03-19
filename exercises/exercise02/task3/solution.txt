@@ -1,0 +1,20 @@
+Experiment with different values for N and S.
+Analyze the obtained output. Is the order of the messages consistent?
+Can the order of these messages be predicted? What does it depend on?
+-->
+    it appears, that the messages are ordered by elapsed time. This has been consistent with all my tests.
+    all other variables to order by have not shown any consistency.
+
+
+Notice that the function DR_p uses rand(3) to repeatedly generate pseudo-random numbers.
+By default, this function returns the same sequence of numbers every time.
+To get different estimates from each process, seed the random number generator using srand(getpid()).
+-->Done.
+Does it matter whether you do this before or after the call to fork()? Explain your answer.
+-->
+    Yes, it does matter!
+    Explanation: getpid() gets the PID of the CURRENT process.
+    if srand(getpid()) is called BEFORE the fork() -> it uses the PID of the parent ==> is always the same.
+    ---
+    if srand(getpid()) is called AFTER the fork() -> it uses the PID of the child, that is currently calling it
+        --> every child has its own individual PID -> this makes rand() more random.

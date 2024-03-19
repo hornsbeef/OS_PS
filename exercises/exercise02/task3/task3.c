@@ -5,6 +5,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#define _POSIX_C_SOURCE=199309L
+
 #define BILLION 1E9
 
 double DR_p(int T, int64_t S) {
@@ -78,7 +80,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	if (PID != 0) {
-		while (N >= 0) { // waiting for all child processes; important: "If a child has already changed
+		while (N > 0) { // waiting for all child processes; important: "If a child has already changed
 			               // state, then these calls return immediately."
 			wait(NULL); // because I'm not interested in the status
 			N--;
