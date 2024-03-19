@@ -34,7 +34,7 @@ SIGSTOP & SIGCONT used by Debugger
 
 for sigaction:
     signum can be any valid signal except SIGKILL and SIGSTOP !
-    -> these signals
+
 
 sprintf is NOT an async-signal-safe function.
 therefore the following code was removed from my signal_handler_funct
