@@ -12,7 +12,7 @@ goodbye.o: goodbye.c
 main.o: main.c
 
 %.o: %.c
-	$(info Compiling $(patsubst %.o,%,$@))
+	$(info Compiling $(patsubst %.o,%,$@):)
 	$(CC) $(CFLAGS) -c -o $@ $^
 
 hello: hello.c
