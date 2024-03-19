@@ -12,7 +12,7 @@ clean:
 
 number := $(shell pwd|rev|cut -c 1-2|rev)
 zipname := exc$(number)_csbb5525.zip
-zip_ignored := "*.idea*" "__MACOSX" ".DS_Store" "./README.md" "*.clang-format" "*CMakeLists.txt"
+zip_ignored := "*.idea*" "__MACOSX" ".DS_Store" "./README.md" "*.clang-format" "*CMakeLists.txt" "*cmake-build-debug*"
 
 zip:
 	@echo "exercise number: "$(number)
