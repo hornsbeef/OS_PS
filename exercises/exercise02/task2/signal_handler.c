@@ -22,6 +22,10 @@ void sighandler_funct(int signum) {
 	}
 	write(STDOUT_FILENO, buffer, strlen(buffer));
 }
+//todo: improve with volatile atomic flag -> less time in signal handler!
+
+
+
 
 int main(void) {
 	// posting pid for ease of operation: comment out before handing
@@ -39,10 +43,13 @@ int main(void) {
 	// https://www4.cs.fau.de/Lehre/SS13/V_SPIC/Uebung/Folien/u8-a6.pdf
 
 	struct sigaction act;
+	//todo: improve with initializing the sigaction struct completely
 	act.sa_handler =
 	    &sighandler_funct; // function that handles what happens when the signal is received.
 
 	sigfillset(&act.sa_mask); // Signal mask to be used while handling the signal with sigaction
+	//todo: improve by shortening the handler->function -> SIG30-C link!
+	// set eflag to signum in handler!
 
 	act.sa_flags = SA_RESTART; // if systemcall is interrupted by a signal -> systemcall is restarted.
 
@@ -52,6 +59,8 @@ int main(void) {
 	sigaction(SIGKILL, &act, NULL);
 	sigaction(SIGUSR1, &act, NULL);
 	sigaction(SIGUSR2, &act, NULL);
+
+	//todo: improve by checking for returnvalue in sigaction -> SIGSTOP und SIGKILL
 
 	// allow required signals
 

@@ -4,6 +4,8 @@ Can the order of these messages be predicted? What does it depend on?
 -->
     it appears, that the messages are ordered by elapsed time. This has been consistent with all my tests.
     all other variables to order by have not shown any consistency.
+    --> CAVE:   with interrupts -> can be totally random -> would need to know the whole state of the system for actual
+                prediction!
 
 
 Notice that the function DR_p uses rand(3) to repeatedly generate pseudo-random numbers.

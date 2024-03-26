@@ -37,6 +37,10 @@ int main(int argc, char* argv[]) {
 	if (*(char*)end != '\0') {
 		goto USAGE;
 	}
+	//todo: CAVE: int64_t is not strictly 64bit -> how to enforce?
+	//sscanf SCNd64 macro -> stackoverflow
+	//additional
+
 	////////////////////////////////////////////////////////////
 	// actual fork implementation:
 
@@ -74,6 +78,7 @@ int main(int argc, char* argv[]) {
 		double time_elapsed = (end_time.tv_sec - start_time.tv_sec) +
 		                      ((end_time.tv_nsec - start_time.tv_nsec) / (double)BILLION);
 
+		//todo: imporovable with flock !
 		printf("Child %d PID = %d. DR_p(%d,%ld) = %f. Elapsed time = %f (s).\n", child_number,
 		       child_PID, T, S, probability, time_elapsed);
 	}

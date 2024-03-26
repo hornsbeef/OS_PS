@@ -1,3 +1,7 @@
+# make -s  -> silent -> check if working with $(MAKE)
+
+# > sampel in lab3 folder!
+
 MAKEFLAGS += --silent
 .PHONY: clean clean_old $(SUBDIRS) zip number zipname
 
@@ -14,7 +18,10 @@ number := $(shell pwd|rev|cut -c 1-2|rev)
 zipname := exc$(number)_csbb5525.zip
 zip_ignored := "*.idea*" "__MACOSX" ".DS_Store" "./README.md" "*.clang-format" "*CMakeLists.txt" "*cmake-build-debug*"
 
-zip:
+#CAVE: zip is only updating not overwriting -> needs rm -> so no unwanted
+# have clean as prerequesite for zip -> cleans all dirs before zip
+
+zip: clean
 	@echo "exercise number: "$(number)
 	@echo "checking if "$(zipname)" already exists and removing it..."
 	-rm -f $(zipname)

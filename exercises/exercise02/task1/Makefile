@@ -1,3 +1,6 @@
+# $RM instead of rm -> more independence form system.
+
+
 CFLAGS = -std=c11 -Wall -Wextra
 CC = cc
 files_to_clean = *.o main.c main
