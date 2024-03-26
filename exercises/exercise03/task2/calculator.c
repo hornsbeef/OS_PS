@@ -22,6 +22,7 @@ todo: Think of at least two other constraints and add appropriate exit codes.
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <errno.h>
 
 
 enum error_codes {
@@ -160,10 +161,15 @@ You can inspect environment variables on your shell with printenv and print them
     //offset implementation
     double offset = 0;
 
-
+    char* env_var = getenv("OFFSET");
+    if(env_var == NULL){
+        //no match was found for environment varibale OFFSET
+        offset = 0;
+    }
+    printf("Environmental Variable OFFSET: %s\n\n", env_var);
 
     //print result
-    printf("Result: %f", result);
+    printf("Result: %f\n", result);
 
 
 
