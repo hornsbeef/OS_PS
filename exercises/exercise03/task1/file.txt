@@ -1,0 +1,9 @@
+- Explain how to read these permission strings (e.g. `rw-rw-r--`).
+- How do these permission strings relate to octal permissions (e.g. `0644`)?
+- What is the benefit of having 'groups' and 'others'?
+- In your opinion, what are the ideal permissions for ...
+  - ... a text file used to take private notes?
+  - ... a shell script?
+  - ... a config file that should not be edited?
+
+Hand 'task1.txt' as your solution.
