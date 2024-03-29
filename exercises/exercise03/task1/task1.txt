@@ -1,8 +1,10 @@
 Answer the following questions:
 - Which command did you use to set the permissions for 'task1.txt'?
 chmod 600 task1.txt
+
 - Which command did you use to set the permissions for 'file.txt'?
 chmod 400 file.txt
+
 - Explain how to read these permission strings (e.g. `rw-rw-r--`).
 	rw-	rw-	r--
 	user	group	other
@@ -16,7 +18,7 @@ write = 2
 execute = 1 
 -> add up per entity -> 
 rw-rw-r--
-rw-	rw-	r--
+rw-		rw-		r--
 user	group	other
 6		6		4
 --------------------------
