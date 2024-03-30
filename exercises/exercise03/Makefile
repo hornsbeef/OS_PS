@@ -16,7 +16,7 @@ clean:
 
 number := $(shell pwd|rev|cut -c 1-2|rev)
 zipname := exc$(number)_csbb5525.zip
-zip_ignored := "*.idea*" "__MACOSX" ".DS_Store" "./README.md" "*.clang-format" "*CMakeLists.txt" "*cmake-build-debug*" "/task1/exercise.sh" "/task1/file.txt" "/task1/task1.tar"
+zip_ignored := "*.idea*" "__MACOSX" ".DS_Store" "./README.md" "*.clang-format" "*CMakeLists.txt" "*cmake-build-debug*" "/task1/exercise.sh" "/task1/file.txt" "/task1/task1.tar" "task3a"
 
 #CAVE: zip is only updating not overwriting -> needs rm -> so no unwanted
 # have clean as prerequesite for zip -> cleans all dirs before zip
