@@ -22,11 +22,10 @@ pthread_mutex_t lock;
 pthread_t tid[AMOUNT_THREADS];
 
 
-
 int64_t accumulate_fkt() {
     int64_t acc = 0;
     //The child accumulates the values from 1 to N = 10 into accumulation and exits.
-    for(int i = 1; i <= 10; i++ ){
+    for (int i = 1; i <= 10; i++) {
         acc += i;
         //testing -> remove before commit
         //printf("%lu: %ld %ld\n",pthread_self(), accumulation, acc);
@@ -34,7 +33,7 @@ int64_t accumulate_fkt() {
     return acc;
 }
 
-void* pthreadStartRoutine(){
+void *pthreadStartRoutine() {
     //The thread does the same thing as the child process, i.e. accumulate_fkt the values from 1to N = 10 into the global variable and immediately exit.
 
     pthread_mutex_lock(&lock);      //"take key and lock room"
@@ -49,17 +48,17 @@ void* pthreadStartRoutine(){
 }
 
 void pthread_error_funct(int pthread_returnValue) {
-    if(pthread_returnValue != 0){
-        char* error_msg = strerror(pthread_returnValue);
+    if (pthread_returnValue != 0) {
+        char *error_msg = strerror(pthread_returnValue);
         fprintf(stderr, "Error code: %d\n"
                         "Error message: %s\n"
                         "Note that the pthreads functions do not set errno.\n",
-                        pthread_returnValue, error_msg);
+                pthread_returnValue, error_msg);
         exit(EXIT_FAILURE);
     }
 }
 
-int main(){
+int main() {
     //for mutex locking:
     int mutex_init_retVal = pthread_mutex_init(&lock, NULL);
     pthread_error_funct(mutex_init_retVal);
@@ -73,7 +72,7 @@ int main(){
     switch (pid) {
         case -1:
             perror("fork failed");
-            exit (EXIT_FAILURE);
+            exit(EXIT_FAILURE);
         case 0:
             //this is child-Process
             accumulation = accumulate_fkt();
@@ -93,7 +92,7 @@ int main(){
 
             int i = 0;
             int error;
-            while(i < AMOUNT_THREADS){
+            while (i < AMOUNT_THREADS) {
                 error = pthread_create(&tid[i], NULL, &pthreadStartRoutine, NULL);
                 pthread_error_funct(error);
                 i++;
@@ -105,7 +104,7 @@ int main(){
 
             //The main thread waits for the thread to finish, and prints the value one more time.
             int j = 0;
-            while(j < AMOUNT_THREADS){
+            while (j < AMOUNT_THREADS) {
                 //int pthread_join_retVal =
                 pthread_join(tid[j], NULL);    //todo: testing with NULL -> else check manpage
                 //thread_error_funct(pthread_join_retVal);

@@ -15,7 +15,7 @@ enum error_codes {
     argument_too_small = 15,
     over_or_underflow = 16,
     operator_unknown = 17,
-    readdir_failed  = 18,
+    readdir_failed = 18,
     fopen_failed = 19,
     getline_failed = 20,
     malloc_fail = 21,
@@ -31,13 +31,13 @@ void check_argument_count(int argc) {
     }
 }
 
-long cast_to_int_upto_newline(char* string) {
+long cast_to_int_upto_newline(char *string) {
     errno = 0;
     char *end = NULL;
     long operand = strtol(string, &end, 10);
     //check conversion:
-    if (*end != '\n'){
-        if ((*end != '\0') || (string == end) ) {       //conversion interrupted || no conversion happened
+    if (*end != '\n') {
+        if ((*end != '\0') || (string == end)) {       //conversion interrupted || no conversion happened
             fprintf(stderr, "operand not a number!\n");
             fprintf(stderr, "usage: ."__FILE__" <number of files> \n");
             exit(argument_not_a_number);
@@ -54,8 +54,8 @@ long cast_to_int_upto_newline(char* string) {
 }
 
 void pthread_error_funct(int pthread_returnValue) {
-    if(pthread_returnValue != 0){
-        char* error_msg = strerror(pthread_returnValue);
+    if (pthread_returnValue != 0) {
+        char *error_msg = strerror(pthread_returnValue);
         fprintf(stderr, "Error code: %d\n"
                         "Error message: %s\n"
                         "Note that the pthreads functions do not set errno.\n",
@@ -65,7 +65,6 @@ void pthread_error_funct(int pthread_returnValue) {
 }
 
 
-
 // Structure to hold thread data
 typedef struct {
     int threadNum;
@@ -73,14 +72,14 @@ typedef struct {
     long sum;
 } ThreadData;
 
-pthread_t* tid;
-ThreadData* threadData;
-char** global_argv;
+pthread_t *tid;
+ThreadData *threadData;
+char **global_argv;
 
-FILE* open_file(char *filename) {
+FILE *open_file(char *filename) {
     errno = 0;
-    FILE* file = fopen(filename, "r");
-    if(file == NULL){   //check ob open funktioniert hat.
+    FILE *file = fopen(filename, "r");
+    if (file == NULL) {   //check ob open funktioniert hat.
         fprintf(stderr, "The following file could not be opened: %s", filename);
         perror("\n");
         exit(fopen_failed);
@@ -89,15 +88,14 @@ FILE* open_file(char *filename) {
 }
 
 
-
 long file_reader_and_sum(FILE *file) {
     long sum = 0;
 
     errno = 0;
-    char* lineptr = NULL;
+    char *lineptr = NULL;
     size_t buffer = 0;
-    while(getline(&lineptr, &buffer, file) != -1){
-        if(errno != 0){
+    while (getline(&lineptr, &buffer, file) != -1) {
+        if (errno != 0) {
             perror("getline failed");
             //todo: how to error handle in thread with allocaded memory?
             free(lineptr);
@@ -111,11 +109,11 @@ long file_reader_and_sum(FILE *file) {
     return sum;
 }
 
-void* pthreadStartRoutine(void* arg){
+void *pthreadStartRoutine(void *arg) {
     //ThreadData* data = (ThreadData* )arg;
-    int current_threadNum = ((ThreadData*)arg)->threadNum;
+    int current_threadNum = ((ThreadData *) arg)->threadNum;
 
-    FILE* file = open_file(global_argv[threadData[current_threadNum].threadNum]);
+    FILE *file = open_file(global_argv[threadData[current_threadNum].threadNum]);
     long sum = file_reader_and_sum(file);
 
     //TODO: is mutex usage correct here?
@@ -130,33 +128,33 @@ void* pthreadStartRoutine(void* arg){
 
 void create_number_pthreads_with_checker(int number) {
     int error;
-    for(int i = 1; i <= number; i++){
+    for (int i = 1; i <= number; i++) {
 
         pthread_mutex_lock(&lock);
         threadData[i].threadNum = i;
         pthread_mutex_unlock(&lock);
 
-        error = pthread_create(&tid[i], NULL, &pthreadStartRoutine, (void *)&threadData[i]);
+        error = pthread_create(&tid[i], NULL, &pthreadStartRoutine, (void *) &threadData[i]);
         pthread_error_funct(error);
     }
 }
 
 void print_individual_sums(int number) {
-    for(int x = 1; x <= number; x++){
+    for (int x = 1; x <= number; x++) {
         //printf("tid%d: %ld\n",x, tid[x]);
-        printf("sum %d = %ld\n",x,threadData[x].sum);
+        printf("sum %d = %ld\n", x, threadData[x].sum);
     }
 }
 
 long total_sum_funct(int number) {
     long total_sum = 0;
-    for(int x = 1; x <= number; x++){
+    for (int x = 1; x <= number; x++) {
         total_sum += threadData[x].sum;
     }
     return total_sum;
 }
 
-int main(int argc, char* argv[]){
+int main(int argc, char *argv[]) {
     check_argument_count(argc);
 
     //The program creates N threads,
@@ -165,24 +163,24 @@ int main(int argc, char* argv[]){
     int number = argc - 1;
 
     errno = 0;
-    threadData = malloc((number+1) * sizeof(ThreadData));
-    if(threadData == NULL){
+    threadData = malloc((number + 1) * sizeof(ThreadData));
+    if (threadData == NULL) {
         perror("Malloc failed");
         exit(malloc_fail);
     }
 
-    tid = malloc((number+1) * sizeof(pthread_t));
-    if(tid == NULL){
+    tid = malloc((number + 1) * sizeof(pthread_t));
+    if (tid == NULL) {
         free(threadData);
         perror("Malloc failed");
         exit(malloc_fail);
     }
-    
+
     global_argv = argv;
 
     create_number_pthreads_with_checker(number);
 
-    for(int x = 1; x <= number; x++){
+    for (int x = 1; x <= number; x++) {
         pthread_join(tid[x], NULL);
     }
 

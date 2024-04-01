@@ -47,7 +47,7 @@ void div_by_zero_catcher(double second_ops[], int number_of_second_ops);
 
 double calculate(char operator, double operand_1, int number_of_second_ops, double *second_ops);
 
-double castToDoubleWithCheck(char* string);
+double castToDoubleWithCheck(char *string);
 
 int main(int argc, char *argv[]) {
 
@@ -115,7 +115,7 @@ You can inspect environment variables on your shell with printenv and print them
 
 }
 
-double castToDoubleWithCheck(char* string) {
+double castToDoubleWithCheck(char *string) {
     errno = 0;
     char *end = NULL;
     double operand = strtod(string, &end);
