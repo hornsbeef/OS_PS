@@ -21,7 +21,7 @@ How can you retrieve the returned exit code in your shell after running the prog
 
 In your shell ;, &&, and || can be used to execute multiple commands on a single line. What are the differences between these 3 operators?
 
-(;) is used to separate multiple commands, allowing you to execute them sequentially on a single line. 
+(;) is used to separate multiple commands, allowing you to execute them sequentially on a single line.
 e.g.:	export OFFSET=100 ; ./calculator + 5 ; unset OFFSET ; ./calculator + 5
 
 (&&) is used as a logical AND operator. When && is used to separate commands, the second command will only be executed if the first command is executed successfully, meaning it exits without errors. This operator allows for conditional execution of commands based on the success of the preceding command.

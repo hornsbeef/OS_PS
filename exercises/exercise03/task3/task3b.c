@@ -3,17 +3,24 @@
 #include <errno.h>
 #include <pthread.h>
 #include <string.h>
+#include <sys/types.h>
+#include <dirent.h>
 
+#define MAX_FILENAME_LENGTH 256
+#define BUFFERSIZE_BYTES 100
 
 enum error_codes {
     invalid_number_of_arguments = 13,
     argument_not_a_number = 14,
     argument_too_small = 15,
     over_or_underflow = 16,
-    operator_unknown = 42,
+    operator_unknown = 17,
+    readdir_failed  = 18,
+    fopen_failed = 19,
+    getline_failed = 20,
 
 };
-
+pthread_mutex_t lock;
 
 
 void check_argument_count(int argc) {
@@ -23,32 +30,26 @@ void check_argument_count(int argc) {
     }
 }
 
-long cast_to_int_with_check(char* string) {
+long cast_to_int_upto_newline(char* string) {
     errno = 0;
     char *end = NULL;
     long operand = strtol(string, &end, 10);
     //check conversion:
-    if ((*end != '\0') || (string == end)) {       //conversion interrupted || no conversion happened
-        fprintf(stderr, "operand not a number!\n");
-        fprintf(stderr, "usage: ."__FILE__" <number of files> \n");
-        exit(argument_not_a_number);
+    if (*end != '\n'){
+        if ((*end != '\0') || (string == end) ) {       //conversion interrupted || no conversion happened
+            fprintf(stderr, "operand not a number!\n");
+            fprintf(stderr, "usage: ."__FILE__" <number of files> \n");
+            exit(argument_not_a_number);
+        }
     }
-
     if (errno != 0) {        //== ERANGE //as alternative to != 0
         //printf("Overflow or underflow occurred.");
         perror("Conversion of argument ended with error");
         fprintf(stderr, "usage: ."__FILE__" <number of files> \n");
         exit(over_or_underflow);
     }
-    return operand;
-}
 
-void argument_too_small_checker(long number) {
-    if(number <= 0){
-        fprintf(stderr, "argument too small!\n");
-        fprintf(stderr, "usage: ."__FILE__" <number of files> \n");
-        exit(argument_too_small);
-    }
+    return operand;
 }
 
 void pthread_error_funct(int pthread_returnValue) {
@@ -62,38 +63,173 @@ void pthread_error_funct(int pthread_returnValue) {
     }
 }
 
-void* pthreadStartRoutine(void* void_ptr){
+
+
+// Structure to hold thread data
+typedef struct {
+    int threadNum;
+    // Add any other necessary data here
+    long sum;
+} ThreadData;
+
+pthread_t* tid;
+ThreadData* threadData;
+char** global_argv;
+
+FILE* open_file(char *filename) {
+    errno = 0;
+    FILE* file = fopen(filename, "r");
+    if(file == NULL){   //check ob open funktioniert hat.
+        fprintf(stderr, "The following file could not be opened: %s", filename);
+        perror("\n");
+        exit(fopen_failed);
+    }
+    return file;
+}
 
 
 
+long file_reader_and_sum(FILE *file) {
+    long sum = 0;
+
+    errno = 0;
+    size_t* buffer = malloc(BUFFERSIZE_BYTES);
+    char** lineptr = buffer;
+    while(getline(lineptr, buffer, file) != -1){
+        if(errno != 0){
+            perror("getline failed");
+            //todo: how to error handle in thread with allocaded memory?
+            //exit(getline_failed);
+        }
+        long temp = cast_to_int_upto_newline(*lineptr);
+        //printf("%ld\n", temp);
+        sum += temp;
+    }
+    free(buffer);
+
+    //printf("sum = %ld", sum);
+    return sum;
+}
+
+void* pthreadStartRoutine(void* arg){
+    ThreadData* data = (ThreadData* )arg;
+    FILE* file = open_file(global_argv[data->threadNum]);
+    long sum = file_reader_and_sum(file);
+
+    pthread_mutex_lock(&lock);
+    data->sum = sum;
+    pthread_mutex_unlock(&lock);
+
+    fclose(file);
     pthread_exit(NULL);
 }
 
 
-pthread_t* tid;
+void create_number_pthreads_with_checker(int number) {
+    int error;
+    for(int i = 1; i <= number; i++){
+
+        pthread_mutex_lock(&lock);
+        threadData[i].threadNum = i;
+        pthread_mutex_unlock(&lock);
+
+        error = pthread_create(&tid[i], NULL, &pthreadStartRoutine, (void *)&threadData[i]);
+        pthread_error_funct(error);
+    }
+}
+
+void print_individual_sums(int number) {
+    for(int x = 1; x <= number; x++){
+        //printf("tid%d: %ld\n",x, tid[x]);
+        printf("sum %d = %ld\n",x,threadData[x].sum);
+    }
+}
+
+long total_sum_funct(int number) {
+    long total_sum = 0;
+    for(int x = 1; x <= number; x++){
+        total_sum += threadData[x].sum;
+    }
+    return total_sum;
+}
 
 int main(int argc, char* argv[]){
     check_argument_count(argc);
 
     //The program creates N threads,
-    // each of which is assigned an ID i, with 0 < i <= N.
+    // each of which is assigned an ID runner_1, with 0 < runner_1 <= N.
     // -> via array
     int number = argc - 1;
 
-    //hacky way to make tid-array available globally
-    pthread_t main_tid[number+1]; //todo: find way to make this available globally to all threads
-    tid = main_tid; //TODO: HOW TO BETTER?!
+    threadData = malloc((number+1) * sizeof(ThreadData));
+    tid = malloc((number+1) * sizeof(pthread_t));
+    global_argv = argv;
 
-    int error;
-    for(int i = 1; i <= number; i++){
-        error = pthread_create(&tid[i], NULL, &pthreadStartRoutine, NULL);
-        pthread_error_funct(error);
+
+    create_number_pthreads_with_checker(number);
+
+    //TODO: fix bug here -> double free or corrupted (out)
+    for(int x = 1; x <= number; x++){
+        pthread_join(tid[x], NULL);
     }
 
-//    //debug/test:
-//    main_tid[number - 1] = 12345;
-//    printf("test: %lu", tid[0]);
-//    //end
 
+    print_individual_sums(number);
+
+    long total_sum = total_sum_funct(number);
+    printf("total sum = %ld", total_sum);
+
+
+    free(tid);
+    free(threadData);
 
 }
+
+
+
+
+
+
+
+//other checking approach:
+/*
+
+    //check if all files are valid: exit on invalid
+    DIR* dir = opendir(".");
+    struct dirent* dirent_struct;
+    if(dir == NULL){
+        perror("opening working directory failed");
+        exit(operator_unknown);
+    }
+    errno = 0;
+    int number_of_files_in_dir = 0;
+    while ( ((dirent_struct = readdir(dir)) != NULL) && (errno = 0) ){
+        number_of_files_in_dir++;
+    }
+    errno_check(readdir_failed);
+
+
+    //: array for all file-names in directory:
+    char all_dir_file_names[number_of_files_in_dir][MAX_FILENAME_LENGTH];
+    int runner_1 = 0;
+    errno = 0;
+    while ((dirent_struct = readdir(dir)) != NULL){
+        strcpy(all_dir_file_names[runner_1], dirent_struct->d_name);
+        runner_1++;
+    }
+    errno_check(readdir_failed);
+
+    //todo: check if all argv[1-...] are in the all_dir_file_names[]
+    for(int runner_2 = 0; runner_2 < runner_1; runner_2++){
+        //printf("%s\n", all_dir_file_names[runner_2]);
+
+        //TODO: DEBUG:
+        for (int x = 1; x < argc ; x++){
+            printf("%s\n", argv[x]);
+        }
+
+
+
+    }
+
+ */
