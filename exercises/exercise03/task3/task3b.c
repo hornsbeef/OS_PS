@@ -18,6 +18,7 @@ enum error_codes {
     readdir_failed  = 18,
     fopen_failed = 19,
     getline_failed = 20,
+    malloc_fail = 21,
 
 };
 pthread_mutex_t lock;
@@ -93,31 +94,33 @@ long file_reader_and_sum(FILE *file) {
     long sum = 0;
 
     errno = 0;
-    size_t* buffer = malloc(BUFFERSIZE_BYTES);
-    char** lineptr = buffer;
-    while(getline(lineptr, buffer, file) != -1){
+    char* lineptr = NULL;
+    size_t buffer = 0;
+    while(getline(&lineptr, &buffer, file) != -1){
         if(errno != 0){
             perror("getline failed");
             //todo: how to error handle in thread with allocaded memory?
-            //exit(getline_failed);
+            free(lineptr);
+            pthread_exit(NULL);
         }
-        long temp = cast_to_int_upto_newline(*lineptr);
+        long temp = cast_to_int_upto_newline(lineptr);
         //printf("%ld\n", temp);
         sum += temp;
     }
-    free(buffer);
-
-    //printf("sum = %ld", sum);
+    free(lineptr);
     return sum;
 }
 
 void* pthreadStartRoutine(void* arg){
-    ThreadData* data = (ThreadData* )arg;
-    FILE* file = open_file(global_argv[data->threadNum]);
+    //ThreadData* data = (ThreadData* )arg;
+    int current_threadNum = ((ThreadData*)arg)->threadNum;
+
+    FILE* file = open_file(global_argv[threadData[current_threadNum].threadNum]);
     long sum = file_reader_and_sum(file);
 
+    //TODO: is mutex usage correct here?
     pthread_mutex_lock(&lock);
-    data->sum = sum;
+    threadData[current_threadNum].sum = sum;
     pthread_mutex_unlock(&lock);
 
     fclose(file);
@@ -161,14 +164,24 @@ int main(int argc, char* argv[]){
     // -> via array
     int number = argc - 1;
 
+    errno = 0;
     threadData = malloc((number+1) * sizeof(ThreadData));
-    tid = malloc((number+1) * sizeof(pthread_t));
-    global_argv = argv;
+    if(threadData == NULL){
+        perror("Malloc failed");
+        exit(malloc_fail);
+    }
 
+    tid = malloc((number+1) * sizeof(pthread_t));
+    if(tid == NULL){
+        free(threadData);
+        perror("Malloc failed");
+        exit(malloc_fail);
+    }
+    
+    global_argv = argv;
 
     create_number_pthreads_with_checker(number);
 
-    //TODO: fix bug here -> double free or corrupted (out)
     for(int x = 1; x <= number; x++){
         pthread_join(tid[x], NULL);
     }

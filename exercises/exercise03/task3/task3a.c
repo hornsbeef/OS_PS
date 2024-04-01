@@ -34,7 +34,7 @@ int64_t accumulate_fkt() {
     return acc;
 }
 
-void* pthreadStartRoutine(void* void_ptr){
+void* pthreadStartRoutine(){
     //The thread does the same thing as the child process, i.e. accumulate_fkt the values from 1to N = 10 into the global variable and immediately exit.
 
     pthread_mutex_lock(&lock);      //"take key and lock room"

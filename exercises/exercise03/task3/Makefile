@@ -1,14 +1,16 @@
 # $RM instead of rm -> more independence form system.
-
 CFLAGS = -std=c11 -Wall -Wextra
 CC = cc
+
 files_to_clean = *.o $(files_to_compile)
-files_to_compile = calculator
+files_to_compile = task3a task3b
 
 
 
-all: $(files_to_compile).o
-	$(CC) $(CFLAGS) -o $(files_to_compile) $^
+all: $(files_to_compile:%=%.o)
+	$(info  $(files_to_compile:%=%.o))
+	$(CC) $(CFLAGS) -o $(word 1, $(files_to_compile)) $(word 1, $(files_to_compile:%=%.o))
+	$(CC) $(CFLAGS) -o $(word 2, $(files_to_compile)) $(word 2, $(files_to_compile:%=%.o))
 
 
 %.o: %.c
@@ -24,7 +26,6 @@ all: $(files_to_compile).o
 .PHONY: clean main.c
 clean:
 	-rm -f $(files_to_clean)
-
 
 
 
