@@ -1,3 +1,5 @@
+#define  _GNU_SOURCE    //needed for getline:97 to not throw warning: implicit declaration of function ‘getline’ [-Wimplicit-function-declaratio]
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
@@ -188,7 +190,7 @@ int main(int argc, char *argv[]) {
     print_individual_sums(number);
 
     long total_sum = total_sum_funct(number);
-    printf("total sum = %ld", total_sum);
+    printf("total sum = %ld\n", total_sum);
 
 
     free(tid);
