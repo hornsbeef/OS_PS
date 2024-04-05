@@ -112,6 +112,7 @@ You can inspect environment variables on your shell with printenv and print them
     //print result
     printf("Result: %f\n", result);
 
+    return EXIT_SUCCESS;
 
 }
 
