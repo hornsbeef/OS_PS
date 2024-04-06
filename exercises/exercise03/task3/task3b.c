@@ -103,7 +103,7 @@ long file_reader_and_sum(FILE *file) {
 
 void *pthreadStartRoutine(void *arg) {
 
-    ThreadData* threadData = arg;
+    ThreadData *threadData = arg;
 
     FILE *file = open_file(threadData->string);
     long sum = file_reader_and_sum(file);
@@ -133,7 +133,7 @@ void create_number_pthreads_with_checker(int number, ThreadData *threadData, pth
 
 }
 
-void print_individual_sums(int number, ThreadData* threadData) {
+void print_individual_sums(int number, ThreadData *threadData) {
     for (int x = 1; x <= number; x++) {
         printf("sum %d = %ld\n", x, threadData[x].sum);
     }
@@ -153,8 +153,8 @@ int main(int argc, char *argv[]) {
     int number = argc - 1;
 
     errno = 0;
-    ThreadData threadData[number +1];
-    pthread_t tid[number+1];
+    ThreadData threadData[number + 1];
+    pthread_t tid[number + 1];
 
     create_number_pthreads_with_checker(number, threadData, tid, argv);
 
