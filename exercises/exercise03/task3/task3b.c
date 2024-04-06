@@ -6,25 +6,19 @@
 #include <pthread.h>
 #include <string.h>
 #include <sys/types.h>
-#include <dirent.h>
+
 
 #define MAX_FILENAME_LENGTH 256
-#define BUFFERSIZE_BYTES 100
 
 enum error_codes {
     invalid_number_of_arguments = 13,
     argument_not_a_number = 14,
-    argument_too_small = 15,
     over_or_underflow = 16,
-    operator_unknown = 17,
-    readdir_failed = 18,
     fopen_failed = 19,
-    getline_failed = 20,
-    malloc_fail = 21,
-
 };
 //mutex standard practice is a global variable...
-pthread_mutex_t lock;
+//pthread_mutex_t lock;
+//re-evaluated code -> mutex not needed
 
 
 void check_argument_count(int argc) {
@@ -41,13 +35,12 @@ long cast_to_int_upto_newline(char *string) {
     //check conversion:
     if (*end != '\n') {
         if ((*end != '\0') || (string == end)) {       //conversion interrupted || no conversion happened
-            fprintf(stderr, "operand not a number!\n");
+            fprintf(stderr, "an argument was not a number!\n");
             fprintf(stderr, "usage: ."__FILE__" <number of files> \n");
             exit(argument_not_a_number);
         }
     }
     if (errno != 0) {        //== ERANGE //as alternative to != 0
-        //printf("Overflow or underflow occurred.");
         perror("Conversion of argument ended with error");
         fprintf(stderr, "usage: ."__FILE__" <number of files> \n");
         exit(over_or_underflow);
@@ -71,18 +64,11 @@ void pthread_error_funct(int pthread_returnValue) {
 // Structure to hold thread data
 typedef struct {
     int threadNum;
-    // Add any other necessary data here
     long sum;
-    //char* string;
-    char* string[256];
+    char string[MAX_FILENAME_LENGTH];
+    pthread_mutex_t lock;
 } ThreadData;
 
-
-//TODO: NEED TO REMOVE ALL GLOBAL VARS:
-
-//pthread_t *tid;
-//ThreadData *threadData;
-//char **global_argv;
 
 FILE *open_file(char *filename) {
     errno = 0;
@@ -97,20 +83,18 @@ FILE *open_file(char *filename) {
 
 
 long file_reader_and_sum(FILE *file) {
-    long sum = 0;
+    long sum = 0;   //starting value
 
     errno = 0;
     char *lineptr = NULL;
     size_t buffer = 0;
-    while (getline(&lineptr, &buffer, file) != -1) {
+    while (getline(&lineptr, &buffer, file) != -1) {    //returns -1 on failure to read a line, sets errno
         if (errno != 0) {
             perror("getline failed");
-            //todo: how to error handle in thread with allocaded memory?
             free(lineptr);
             pthread_exit(NULL);
         }
         long temp = cast_to_int_upto_newline(lineptr);
-        //printf("%ld\n", temp);
         sum += temp;
     }
     free(lineptr);
@@ -118,30 +102,19 @@ long file_reader_and_sum(FILE *file) {
 }
 
 void *pthreadStartRoutine(void *arg) {
-    //ThreadData* data = (ThreadData* )arg;
-    int current_threadNum = ((ThreadData *) arg)->threadNum;
-    fprintf(stderr, "current Thred number: %d\n", current_threadNum);
 
-//TODO: TEST IF WORKS FOR REMOVE GLOBAL VAR
     ThreadData* threadData = arg;
-///////
-    //fprintf(stderr, "global_argV[threadnumber]: %s\n", global_argv[((ThreadData*) arg)->threadNum]);
-    fprintf(stderr, "global_argV[threadnumber]: %s\n", ((ThreadData *) arg)->string);
 
-    //old: FILE *file = open_file(global_argv[threadData[current_threadNum].threadNum]);
-    //old2:FILE *file = open_file(global_argv[((ThreadData*) arg)->threadNum]);
-    FILE *file = open_file(((ThreadData *) arg)->string);
+    FILE *file = open_file(threadData->string);
     long sum = file_reader_and_sum(file);
 
-    //TODO: is mutex usage correct here?
-    pthread_mutex_lock(&lock);
-    //threadData[current_threadNum].sum = sum;
     threadData->sum = sum;
-
-    pthread_mutex_unlock(&lock);
 
     fclose(file);
     pthread_exit(NULL);
+    //i have chosen to return the value via the array,
+    // but it would be possible to pass the sum as the retval via pthread_exit(sum)
+    // and put it in an array in the main()
 }
 
 
@@ -150,31 +123,18 @@ void create_number_pthreads_with_checker(int number, ThreadData *threadData, pth
 
     for (int i = 1; i <= number; i++) {
 
-        pthread_mutex_lock(&lock);
         threadData[i].threadNum = i;
-        //TODO: insert argv here in struct.
-        //threadData[i].string = argv[i];
         strcpy(threadData[i].string, argv[i]);
-
-        pthread_mutex_unlock(&lock);
-
-        //TODO:DEBUG:
-        fprintf(stderr, "tid[%d]: %lu\n", i, tid[i]);
-
 
         error = pthread_create(&tid[i], NULL, &pthreadStartRoutine, (void *) &threadData[i]);
         pthread_error_funct(error);
 
-        //TODO:DEBUG:
-        fprintf(stderr, "tid[%d]: %lu\n", i, tid[i]);
     }
 
 }
 
 void print_individual_sums(int number, ThreadData* threadData) {
     for (int x = 1; x <= number; x++) {
-        //printf("tid%d: %ld\n",x, tid[x]);
-        //TODO:HERE SIGSEGV!
         printf("sum %d = %ld\n", x, threadData[x].sum);
     }
 }
@@ -190,40 +150,16 @@ long total_sum_funct(int number, ThreadData *threadData) {
 int main(int argc, char *argv[]) {
     check_argument_count(argc);
 
-    //The program creates N threads,
-    // each of which is assigned an ID runner_1, with 0 < runner_1 <= N.
-    // -> via array
     int number = argc - 1;
 
     errno = 0;
-    //ThreadData* threadData;
-    //threadData = malloc((number + 1) * sizeof(ThreadData));
-    //if (threadData == NULL) {
-    //    perror("Malloc failed");
-    //    exit(malloc_fail);
-    //}
     ThreadData threadData[number +1];
-
-    //pthread_t *tid;
-    //tid = malloc((number + 1) * sizeof(pthread_t));
-    //if (tid == NULL) {
-    //    free(threadData);
-    //    perror("Malloc failed");
-    //    exit(malloc_fail);
-    //}
     pthread_t tid[number+1];
 
-
-    //global_argv = argv;
-
-    //????create_number_pthreads_with_checker(number, result);
     create_number_pthreads_with_checker(number, threadData, tid, argv);
 
-    //TODO: SIGSEGV here
-    for (int x = 1; x <= number; x++) {
-        //TODO:DEBUG:
-        fprintf(stderr, "JOINING: tid[%d]: %lu\n", x, tid[x]);
 
+    for (int x = 1; x <= number; x++) {
         pthread_join(tid[x], NULL);
     }
 
@@ -238,57 +174,10 @@ int main(int argc, char *argv[]) {
 Investigate how you can pass multiple arguments to a thread function,
  as well as how to receive a result from it.
  The program must not make use of any global variables.
-
-
- */
-
-
-
-
-
-
-
-
-
-//other checking approach:
-/*
-
-    //check if all files are valid: exit on invalid
-    DIR* dir = opendir(".");
-    struct dirent* dirent_struct;
-    if(dir == NULL){
-        perror("opening working directory failed");
-        exit(operator_unknown);
-    }
-    errno = 0;
-    int number_of_files_in_dir = 0;
-    while ( ((dirent_struct = readdir(dir)) != NULL) && (errno = 0) ){
-        number_of_files_in_dir++;
-    }
-    errno_check(readdir_failed);
-
-
-    //: array for all file-names in directory:
-    char all_dir_file_names[number_of_files_in_dir][MAX_FILENAME_LENGTH];
-    int runner_1 = 0;
-    errno = 0;
-    while ((dirent_struct = readdir(dir)) != NULL){
-        strcpy(all_dir_file_names[runner_1], dirent_struct->d_name);
-        runner_1++;
-    }
-    errno_check(readdir_failed);
-
-    //todo: check if all argv[1-...] are in the all_dir_file_names[]
-    for(int runner_2 = 0; runner_2 < runner_1; runner_2++){
-        //printf("%s\n", all_dir_file_names[runner_2]);
-
-        //TODO: DEBUG:
-        for (int x = 1; x < argc ; x++){
-            printf("%s\n", argv[x]);
-        }
-
-
-
-    }
+A Struct is a way to pass multiple arguments to a thread function.
+ The same way one can receive a result form it.
+ Or one can make use of the argument passed by the pthread_exit() and received by
+ the pthread_join().
 
  */
+
