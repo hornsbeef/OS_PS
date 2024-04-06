@@ -23,6 +23,7 @@ enum error_codes {
     malloc_fail = 21,
 
 };
+//mutex standard practice is a global variable...
 pthread_mutex_t lock;
 
 
@@ -72,11 +73,16 @@ typedef struct {
     int threadNum;
     // Add any other necessary data here
     long sum;
+    //char* string;
+    char* string[256];
 } ThreadData;
 
-pthread_t *tid;
-ThreadData *threadData;
-char **global_argv;
+
+//TODO: NEED TO REMOVE ALL GLOBAL VARS:
+
+//pthread_t *tid;
+//ThreadData *threadData;
+//char **global_argv;
 
 FILE *open_file(char *filename) {
     errno = 0;
@@ -114,13 +120,24 @@ long file_reader_and_sum(FILE *file) {
 void *pthreadStartRoutine(void *arg) {
     //ThreadData* data = (ThreadData* )arg;
     int current_threadNum = ((ThreadData *) arg)->threadNum;
+    fprintf(stderr, "current Thred number: %d\n", current_threadNum);
 
-    FILE *file = open_file(global_argv[threadData[current_threadNum].threadNum]);
+//TODO: TEST IF WORKS FOR REMOVE GLOBAL VAR
+    ThreadData* threadData = arg;
+///////
+    //fprintf(stderr, "global_argV[threadnumber]: %s\n", global_argv[((ThreadData*) arg)->threadNum]);
+    fprintf(stderr, "global_argV[threadnumber]: %s\n", ((ThreadData *) arg)->string);
+
+    //old: FILE *file = open_file(global_argv[threadData[current_threadNum].threadNum]);
+    //old2:FILE *file = open_file(global_argv[((ThreadData*) arg)->threadNum]);
+    FILE *file = open_file(((ThreadData *) arg)->string);
     long sum = file_reader_and_sum(file);
 
     //TODO: is mutex usage correct here?
     pthread_mutex_lock(&lock);
-    threadData[current_threadNum].sum = sum;
+    //threadData[current_threadNum].sum = sum;
+    threadData->sum = sum;
+
     pthread_mutex_unlock(&lock);
 
     fclose(file);
@@ -128,27 +145,41 @@ void *pthreadStartRoutine(void *arg) {
 }
 
 
-void create_number_pthreads_with_checker(int number) {
+void create_number_pthreads_with_checker(int number, ThreadData *threadData, pthread_t *tid, char **argv) {
     int error;
+
     for (int i = 1; i <= number; i++) {
 
         pthread_mutex_lock(&lock);
         threadData[i].threadNum = i;
+        //TODO: insert argv here in struct.
+        //threadData[i].string = argv[i];
+        strcpy(threadData[i].string, argv[i]);
+
         pthread_mutex_unlock(&lock);
+
+        //TODO:DEBUG:
+        fprintf(stderr, "tid[%d]: %lu\n", i, tid[i]);
+
 
         error = pthread_create(&tid[i], NULL, &pthreadStartRoutine, (void *) &threadData[i]);
         pthread_error_funct(error);
+
+        //TODO:DEBUG:
+        fprintf(stderr, "tid[%d]: %lu\n", i, tid[i]);
     }
+
 }
 
-void print_individual_sums(int number) {
+void print_individual_sums(int number, ThreadData* threadData) {
     for (int x = 1; x <= number; x++) {
         //printf("tid%d: %ld\n",x, tid[x]);
+        //TODO:HERE SIGSEGV!
         printf("sum %d = %ld\n", x, threadData[x].sum);
     }
 }
 
-long total_sum_funct(int number) {
+long total_sum_funct(int number, ThreadData *threadData) {
     long total_sum = 0;
     for (int x = 1; x <= number; x++) {
         total_sum += threadData[x].sum;
@@ -165,38 +196,53 @@ int main(int argc, char *argv[]) {
     int number = argc - 1;
 
     errno = 0;
-    threadData = malloc((number + 1) * sizeof(ThreadData));
-    if (threadData == NULL) {
-        perror("Malloc failed");
-        exit(malloc_fail);
-    }
+    //ThreadData* threadData;
+    //threadData = malloc((number + 1) * sizeof(ThreadData));
+    //if (threadData == NULL) {
+    //    perror("Malloc failed");
+    //    exit(malloc_fail);
+    //}
+    ThreadData threadData[number +1];
 
-    tid = malloc((number + 1) * sizeof(pthread_t));
-    if (tid == NULL) {
-        free(threadData);
-        perror("Malloc failed");
-        exit(malloc_fail);
-    }
+    //pthread_t *tid;
+    //tid = malloc((number + 1) * sizeof(pthread_t));
+    //if (tid == NULL) {
+    //    free(threadData);
+    //    perror("Malloc failed");
+    //    exit(malloc_fail);
+    //}
+    pthread_t tid[number+1];
 
-    global_argv = argv;
 
-    create_number_pthreads_with_checker(number);
+    //global_argv = argv;
 
+    //????create_number_pthreads_with_checker(number, result);
+    create_number_pthreads_with_checker(number, threadData, tid, argv);
+
+    //TODO: SIGSEGV here
     for (int x = 1; x <= number; x++) {
+        //TODO:DEBUG:
+        fprintf(stderr, "JOINING: tid[%d]: %lu\n", x, tid[x]);
+
         pthread_join(tid[x], NULL);
     }
 
 
-    print_individual_sums(number);
+    print_individual_sums(number, threadData);
 
-    long total_sum = total_sum_funct(number);
+    long total_sum = total_sum_funct(number, threadData);
     printf("total sum = %ld\n", total_sum);
 
-
-    free(tid);
-    free(threadData);
-
 }
+/*
+Investigate how you can pass multiple arguments to a thread function,
+ as well as how to receive a result from it.
+ The program must not make use of any global variables.
+
+
+ */
+
+
 
 
 
