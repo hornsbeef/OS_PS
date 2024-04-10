@@ -46,5 +46,6 @@ anything with it.
 	for a personal script: 0700
   - ... a config file that should not be edited?
 	0444
+	better might be: 0100 -> get question when trying to delete the file even as the user.
 
 Hand 'task1.txt' as your solution.
