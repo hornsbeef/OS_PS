@@ -9,3 +9,7 @@ all: $(TARGET)
 .PHONY: clean
 clean:
 	$(RM) $(TARGET) *.o
+
+.PHONY: valg
+valg:
+	valgrind --leak-check=full --track-origins=yes --show-leak-kinds=all ./task1 some Arguments 4297
