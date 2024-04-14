@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <unistd.h>
-#include <fcntl.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <sys/types.h>  //for pid_t needed
 
 #define READ_END 0
 #define WRITE_END 1
@@ -14,20 +14,18 @@ void fork_error_check(pid_t pid);
 void dup_error_checker(int dup2_error);
 
 int main() {
-
-    char* data = "./task2/file.txt";    //todo: change to other
-    //char* data = "./file.txt";
-
-    int dup2_error;
-
-
-
     //In the dup2(one, two) function,
     // the file descriptor one is duplicated onto the file descriptor two.
     // This means that the file descriptor one is copied to the file descriptor two,
     // and the file descriptor two now refers to the same file as one.
     // The original file descriptor two is replaced by the new file descriptor
     // that points to the same file as one.
+    //char* data = "./task2/file.txt";    //todo: change to other
+    char* data = "./file.txt";
+
+    int dup2_error;
+
+
 
 
     int pipe_fd[2];
