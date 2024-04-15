@@ -28,7 +28,8 @@ long cast_to_int_with_check(client_t *client_i, char* buf);
 
 int main(int argc, char* argv[]) {
     check_argc_count(argc);
-    //todo: check if fifo exist and delete.
+
+
 
     //general setup:
     client_t clients[argc]; //todo:
@@ -42,6 +43,11 @@ int main(int argc, char* argv[]) {
         strcpy(clients[i].name, argv[i]);
         clients[i].counter = 0;
         clients[i].is_connected = false;
+
+        //TODO: check if fifo exist and delete.
+        if(access(clients[i].name, F_OK)){
+            //todo: remove fifo -> maybe unlink? or remove?
+        }
 
         //create fifo for current client with error checking
         errno = 0;
@@ -146,7 +152,7 @@ void pipe_error_check(int pipe_error) {
 
 
 long cast_to_int_with_check(client_t *client_i, char* buf) {
-    client_i.expression_malformed = false;
+    client_i->expression_malformed = false;
     errno = 0;
     char *end = NULL;
     long operand = strtol(buf, &end, 10);
@@ -157,11 +163,11 @@ long cast_to_int_with_check(client_t *client_i, char* buf) {
 
     //TODO: ERROR HERE -> newline somehow allways here
     if ((*end != '\0' && *end != '\n') || (buf == end)) {       //conversion interrupted || no conversion happened
-        fprintf(stdout, "%s: ", client_i.name);
+        fprintf(stdout, "%s: ", client_i->name);
         fflush(stdout);
         //TODO: print buf here: character by character until \n is encountered.
         fprintf(stdout, "is malformed. \n");
-        client_i.expression_malformed = true;
+        client_i->expression_malformed = true;
         return 0;
     }
 
