@@ -10,7 +10,7 @@
 int main(int argc, char* argv[]){
 
     if (argc != 2) {
-        fprintf(stderr, "usage: ."__FILE__ " <client name>");
+        fprintf(stderr, "usage: ."__FILE__ " <client name provided by server (in order!)>");
         exit(EXIT_FAILURE);
     }
 
@@ -23,7 +23,7 @@ int main(int argc, char* argv[]){
         perror("Open failed");
         exit(EXIT_FAILURE);
     }else{
-        printf("Sucessfully opened file.\n");
+        printf("Successfully opened file.\n");
         fflush(stdout);
     }
 
@@ -39,6 +39,7 @@ int main(int argc, char* argv[]){
         //todo: debugging only:
         fprintf(stdout, "this was entered:%s\n", input);
         fflush(stdout);
+
 
 
 

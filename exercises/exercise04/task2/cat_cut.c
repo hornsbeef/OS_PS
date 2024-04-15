@@ -56,6 +56,7 @@ int main() {
 
             errno = 0;
             execvp(args[0], args);
+            //execl could also be used to execute program written by myself! but must be executable (not only source-code!)
 
             //if execvp failed this code will be used:
             //The exec() functions return only if an error has occurred.
