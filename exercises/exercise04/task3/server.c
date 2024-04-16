@@ -34,7 +34,8 @@ void signal_handler(int signo) {
 
 // Signal handling thread function
 void* signal_thread(void* arg) {
-    //TODO: NOT WORKING YET!
+
+
     //signal handling in thread:
     struct sigaction act;
     sigfillset(&act.sa_mask);   //all signals blocked while in signal handler
@@ -75,24 +76,43 @@ long cast_to_int_with_check(client_t *client_i, char* buf);
 int main(int argc, char* argv[]) {
     check_argc_count(argc);
     //TODO: LIST:
+    // - check what other signals to handle!
+
+    //DONE:
     // -build in signal handling for sigterm -> clean up fifo mess!
 
     //general setup:
     client_t clients[argc];
-    mode_t client_server_fifo_perm = (S_IRUSR | S_IWUSR);
+    mode_t client_server_fifo_perm = (S_IRUSR | S_IWUSR);   //sys/stat.h   https://pubs.opengroup.org/onlinepubs/7908799/xsh/sysstat.h.html
+    // this is the permissions parameter used for creating the FIFOs.
+    // The mode parameter is modified by the process's file creation mask,
+    // which is set using the umask() system call.
+    // Example: if the the file mode creation mask is set to 022 ,
+    // and the mkfifo() function is called with a mode parameter of 0666,
+    // the actual permissions of the newly created FIFO file will be rw-rw-rw- (0666 & ~022 = 0644).
+    //
+    //When executing a C program that uses mkfifo(), the permissions of the user that executes the file are used.
+    //therefore I chose to only give the user that executes the program read and write permissions, as
+    // I dont want other users potentially messing with the pipes.
+
+
+
     struct pollfd fds[argc-1];    //for poll()
     for (int i = 1; i < argc; ++i) {
         clients[i].argc = argc; //needed for thread
     }
 
-    // Block SIGTERM in the main thread
+    //create signal handling thread
+    pthread_t thread;
+    pthread_create(&thread, NULL, signal_thread, clients);
+
+    // Block SIGTERM in the main thread (but if done before pthread_create, the other threads will inherit this!)
     sigset_t set;
     sigemptyset(&set);      //ensure is empty
     sigaddset(&set, SIGTERM);   //only add SIGTERM
     pthread_sigmask(SIG_BLOCK, &set, NULL); //this now blocks SIGTERM in main thread
 
-    pthread_t thread;
-    pthread_create(&thread, NULL, signal_thread, clients);
+
 
     //creating all the clients data
     for (int i = 1; i < argc; ++i) {
@@ -217,7 +237,7 @@ int main(int argc, char* argv[]) {
 
 
 
-    // close & UNLINK!!! all the pipes again
+    // close & UNLINK!!! all the pipes again //todo: Check if calling close|unlink multiple times is bad.
     for (int i = 1; i < argc; ++i) {
         close(clients[i].file_descriptor);
         unlink(clients[i].name);            //<- MUST NOT FORGET!
@@ -267,6 +287,60 @@ long cast_to_int_with_check(client_t *client_i, char* buf) {
     }
     return operand;
 }
+
+/* CHECKLIST:
+Server
+    The server can be started with a list of clients that may connect to it, e.g. after starting with ./server jacobi riemann,
+    two clients named jacobi and riemann can connect. -> DONE
+
+    The server then creates a FIFO for each client.
+    Think about a way of associating each FIFO with a specific client.
+    A good location to store FIFOs is somewhere inside /tmp (when working on ZID-GPL, be sure to avoid file naming collisions with other students).
+    ->Done
+
+    The server then waits for clients to connect by opening each FIFO for reading.
+    There is no need to use fork(2) in this task, you can assume that clients connect in the same order they are specified on the command line.
+    -> Done
+
+    Once a client connects, the server prints the message "<client name> connected.". ->Done
+
+    The server continuously monitors all FIFOs for incoming math expressions using poll(2). ->Done
+    ( I guess math expressions means numbers, not something like 4+5 or (4+5)*4³ ... this would need parsing -> could be done with something like tinyexpr (github))
+
+    Once an expression is received, it is added to the counter variable and printed to the console like so "<client name>: counter = <counter>.". ->Done
+
+    In the beginning, the server initializes the counter variable with 0. -> Done
+    If an expression does not conform to the expected format, the server instead prints "<client name>: <expression> is malformed.". -> Done
+    If a client disconnects, the server prints the message "<client name> disconnected.". -> Done
+    Once all clients are disconnected, the server cleans up the FIFOs and exits. ->Done
+
+
+Additional notes and hints:
+
+    You can assume that all clients are connected before handling their messages.
+
+    Your server doesn't need to support clients re-connecting, i.e. they can (and must) connect exactly once.
+
+    Your solution must use poll(2), not select(2). -> Done
+
+    Make sure to use appropriate file permissions (which we discussed in connection to chmod) to create and open your FIFOs. Justify your choice. ->Done
+
+    Your FIFOs should be blocking, i.e. you must not use O_NONBLOCK in your calls to open(2). ->Done
+
+    You can use the %g format specifier to let printf(3) decide on the number of significant digits to print.
+    As always, make sure to properly release all allocated resources (e.g. FIFOs) upon exiting.
+    On macOS, poll(2) is bugged and will not return when you close the pipe from the client, run on ZID-GPL to ensure the correct behaviour.
+    If you want to create multiple processes side-by-side for testing, there are several different options available to you:
+        Open multiple terminal windows or tabs.
+        Use shell jobs to switch between different processes: CTRL + Z, &, fg, bg, jobs, etc.
+        Use a terminal multiplexer such as tmux or screen
+
+
+
+ */
+
+
+
 
 
 /*  Code for usage with open(fd, O_NONBLOCK) for waiting for clients to connect.
