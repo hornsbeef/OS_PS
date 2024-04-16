@@ -29,23 +29,23 @@ int main(int argc, char* argv[]){
 
 
     bool cycle = true;
-    char input[PIPE_BUF];   //this is why it is important to know how long the input is going to be.
+    char input[PIPE_BUF];
+    //You can assume an expression to be at most PIPE_BUF long. Why is this important?
+    //PIPE_BUF : from https://man7.org/linux/man-pages/man7/pipe.7.html
+    //POSIX.1 says that writes of less than PIPE_BUF bytes must be
+    //atomic: the output data is written to the pipe as a contiguous
+    //sequence.  Writes of more than PIPE_BUF bytes may be nonatomic:
+    //the kernel may interleave the data with data written by other
+    //processes.
 
     while(cycle){
         printf("Expression: ");
         //int n_scanned = scanf("%s\n", input );
         fgets(input, PIPE_BUF, stdin);
 
-        //todo: debugging only:
-        fprintf(stdout, "this was entered:%s\n", input);
-        fflush(stdout);
-
-
-
-
         if (strcmp(input, "\n")==0){
                 //nothing was entered
-                //todo: close the connection & break the loop
+                //close the connection & break the loop
                 close(pipe_fd);
                 cycle = false;
                 break;
@@ -57,8 +57,6 @@ int main(int argc, char* argv[]){
     }
 
 
-    fprintf(stderr, "EXITING...");
-    fflush(stderr);
     exit(EXIT_SUCCESS);
 
 
