@@ -12,7 +12,6 @@
 #include <poll.h>
 #include <linux/limits.h>
 #include <bits/types/sig_atomic_t.h>
-
 #include <pthread.h>
 
 
@@ -118,7 +117,7 @@ int main(int argc, char* argv[]) {
     sigemptyset(&set);      //ensure is empty
     sigaddset(&set, SIGTERM);   //only add SIGTERM
     pthread_sigmask(SIG_BLOCK, &set, NULL); //this now blocks SIGTERM in main thread
-
+    //-> compiler still throws warning even if signal.h is included....
 
 
     //creating all the clients data
@@ -250,7 +249,6 @@ int main(int argc, char* argv[]) {
     }
 
 
-    cleanup:
     // close & UNLINK!!! all the pipes again
     for (int i = 1; i < argc; ++i) {
         errno = 0;
