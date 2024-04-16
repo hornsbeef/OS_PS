@@ -1,6 +1,4 @@
-#include <signal.h>
 #include <sys/types.h>
-#include <sys/signal.h>
 #include <sys/stat.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,9 +10,8 @@
 #include <poll.h>
 #include <linux/limits.h>
 #include <bits/types/sig_atomic_t.h>
-
+#include <signal.h>
 #include <pthread.h>
-
 
 
 // Global flag to indicate when the signal has been received
@@ -22,7 +19,7 @@ volatile sig_atomic_t signal_received = 0;
 
 typedef struct client {
     char name[256];
-    double counter;
+    long counter;
     int file_descriptor;
     bool is_connected;
     bool expression_malformed;
@@ -32,7 +29,6 @@ typedef struct client {
 
 // Signal handler function
 void signal_handler(int signo) {
-    (void) signo;
     signal_received = 1;
 }
 
@@ -43,12 +39,10 @@ void* signal_thread(void* arg) {
     //signal handling in thread:
     struct sigaction act;
     sigfillset(&act.sa_mask);   //all signals blocked while in signal handler
-    //act.sa_flags = SA_RESTART;      //compiler: error: ‘SA_RESTART’ undeclared (first use in this function); did you mean ‘ERESTART’? ??????
+    act.sa_flags = SA_RESTART;
 
     act.sa_handler = signal_handler;
     sigaction(SIGTERM, &act, NULL);
-    sigaction(SIGHUP, &act, NULL);
-
 
     //get clients data:
     client_t* client = arg;
@@ -83,7 +77,6 @@ int main(int argc, char* argv[]) {
     check_argc_count(argc);
     //TODO: LIST:
     // - check what other signals to handle!
-    //  SIGHUP,
 
     //DONE:
     // -build in signal handling for sigterm -> clean up fifo mess!
@@ -114,7 +107,7 @@ int main(int argc, char* argv[]) {
     pthread_create(&thread, NULL, signal_thread, clients);
 
     // Block SIGTERM in the main thread (but if done before pthread_create, the other threads will inherit this!)
-    sigset_t set;   //complier: error: unknown type name ‘sigset_t’; did you mean ‘size_t’?
+    sigset_t set;
     sigemptyset(&set);      //ensure is empty
     sigaddset(&set, SIGTERM);   //only add SIGTERM
     pthread_sigmask(SIG_BLOCK, &set, NULL); //this now blocks SIGTERM in main thread
@@ -160,9 +153,6 @@ int main(int argc, char* argv[]) {
         clients[i].file_descriptor = open(clients[i].name, O_RDONLY);
         if(clients[i].file_descriptor < 0){
             perror("Open failed");
-            //goto cleanup;
-            signal_received = 1;    //signal handling thread takes care of cleanup
-            sleep(1);
         }
         //unfortunately O_NONBLOCK is not allowed. (and I still can't read to the end of instructions...)
         //So the program waits here(@ the open()) until the specified client is connected.
@@ -200,16 +190,11 @@ int main(int argc, char* argv[]) {
     while(all_clients_disconnected < (argc-1)){
 
         //wait indefinitely for events via poll:
-        errno = 0;
         int events = poll(fds, argc-1, -1);
-        if(events < 0 ){
-            //poll has thrown error
-            perror("Poll");
-            //goto cleanup;
-            signal_received = 1;    //signal handling thread takes care of cleanup
-            sleep(1);
-        }
+        //todo: see what events can be used for
+        //todo: error checking
 
+        //todo: check what happens if multiple data is available at once??
 
         //once data is available -> go through all file descriptors to check which one has data available:
         for (int i = 1; i < argc; ++i) {
@@ -221,6 +206,8 @@ int main(int argc, char* argv[]) {
                 printf("%s disconnected.\n", clients[i].name);
                 fflush(stdout);
 
+                close(clients[i].file_descriptor);  //could be done below
+                unlink(clients[i].name);                //could be done below
 
                 //To remove one entry from the pollfd[] array,
                 // you can simply set the fd member of the pollfd struct to -1
@@ -238,10 +225,9 @@ int main(int argc, char* argv[]) {
                 memset(buf, 0, PIPE_BUF);
                 read(clients[i].file_descriptor,buf, PIPE_BUF);
 
-                clients[i].counter += cast_to_double_with_check(&clients[i], buf);
+                clients[i].counter += cast_to_int_with_check(&clients[i], buf);
                 if(clients[i].expression_malformed == false){
-                    //printf("%s: counter = %ld.\n", clients[i].name, clients[i].counter);
-                    printf("%s: counter = %g\n", clients[i].name, clients[i].counter);  //now uses %g
+                    printf("%s: counter = %ld.\n", clients[i].name, clients[i].counter);
                 }
 
             }
@@ -250,23 +236,14 @@ int main(int argc, char* argv[]) {
     }
 
 
-    cleanup:
-    // close & UNLINK!!! all the pipes again
+
+    // close & UNLINK!!! all the pipes again //todo: Check if calling close|unlink multiple times is bad.
     for (int i = 1; i < argc; ++i) {
-        errno = 0;
-        int close_error = close(clients[i].file_descriptor);
-        if(close_error < 0){
-            perror("Close");
-        }
+        close(clients[i].file_descriptor);
         unlink(clients[i].name);            //<- MUST NOT FORGET!
-        if(close_error < 0){
-            perror("Unlink");
-        }
     }
     return EXIT_SUCCESS;
 }
-
-
 
 //Helper functions below here:
 
@@ -282,11 +259,6 @@ void pipe_error_check(int pipe_error) {
     if(pipe_error < 0){
         //todo: set errno = 0 before pipe() call!
         perror("Pipe failed");
-        //goto cleanup;
-        signal_received = 1;    //signal handling thread takes care of cleanup
-        sleep(1);
-
-        //should not be reachable
         exit(EXIT_FAILURE);
     }
 }
@@ -296,7 +268,7 @@ double cast_to_double_with_check(client_t *client_i, char* buf) {
     client_i->expression_malformed = false;
     errno = 0;
     char *end = NULL;
-    double operand = strtod(buf, &end);
+    long operand = strtol(buf, &end, 10);
 
     //check conversion:
     if ((*end != '\0' && *end != '\n') || (buf == end)) {       //conversion interrupted || no conversion happened
@@ -311,12 +283,6 @@ double cast_to_double_with_check(client_t *client_i, char* buf) {
         //printf("Overflow or underflow occurred.");
         perror("Conversion of argument ended with error");
         fprintf(stderr, "usage: ."__FILE__" <number of files> \n");
-
-        //goto cleanup;
-        signal_received = 1;    //signal handling thread takes care of cleanup
-        sleep(1);
-
-
         exit(EXIT_FAILURE);
     }
     return operand;
