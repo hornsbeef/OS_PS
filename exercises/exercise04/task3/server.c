@@ -1,6 +1,7 @@
+#define _GNU_SOURCE     //<<-essential for compiler...
 #include <signal.h>
 #include <sys/types.h>
-#include <sys/signal.h>
+//#include <sys/signal.h>
 #include <sys/stat.h>
 #include <stdio.h>
 #include <stdlib.h>
