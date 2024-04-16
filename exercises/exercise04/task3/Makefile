@@ -1,5 +1,5 @@
 # $RM instead of rm -> more independence form system.
-CFLAGS = -std=c11 -Wall -Wextra
+CFLAGS = -std=c11 -Wall -Wextra -D_POSIX_C_SOURCE=199309L
 CC = cc
 
 files_to_clean = *.o $(files_to_compile)
