@@ -1,3 +1,9 @@
+/*
+ * snprintf() -> for fifo??
+ * strcspn() -> for cropping ??
+ */
+
+
 #define _GNU_SOURCE     //<<-essential for compiler...
 #include <signal.h>
 #include <sys/types.h>
