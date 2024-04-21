@@ -1,16 +1,16 @@
 # $RM instead of rm -> more independence form system.
-CFLAGS = -std=c11 -Wall -Wextra -D_POSIX_C_SOURCE=199309L
+CFLAGS = -std=c11 -Wall -Wextra -D_POSIX_C_SOURCE=199309L -lrt
 CC = cc
 
 files_to_clean = *.o $(files_to_compile)
-files_to_compile = server client
+files_to_compile = task2
 
 
 
 all: $(files_to_compile:%=%.o)
 	$(info  $(files_to_compile:%=%.o))
 	$(CC) $(CFLAGS) -o $(word 1, $(files_to_compile)) $(word 1, $(files_to_compile:%=%.o))
-	$(CC) $(CFLAGS) -o $(word 2, $(files_to_compile)) $(word 2, $(files_to_compile:%=%.o))
+	#used for multi-file support#$(CC) $(CFLAGS) -o $(word 2, $(files_to_compile)) $(word 2, $(files_to_compile:%=%.o))
 
 
 %.o: %.c

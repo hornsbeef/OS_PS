@@ -108,7 +108,7 @@ int main(int argc, char* argv[]) {
         if(pid == 0){
             switch (i) {
                 case 0: {
-                    for (int j = 0; j < K; ++j) {
+                    for (uint64_t j = 0; j < K; ++j) {
                         int number = N * (j+1);
                         todo_ptr->buffer[j%L] = number;
                     }
@@ -121,7 +121,7 @@ int main(int argc, char* argv[]) {
                      */
 
                     uint64_t temp =0;
-                    for (int j = 0; j < K; ++j) {
+                    for (uint64_t j = 0; j < K; ++j) {
                        temp +=  todo_ptr->buffer[j%L];
                     }
                     todo_ptr->result = temp;
