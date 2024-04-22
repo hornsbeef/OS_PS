@@ -119,6 +119,10 @@ int main(int argc, char* argv[]) {
         shm_clean_before_exit(name, fd);
         exit(EXIT_FAILURE);
     }
+    /*
+     * If pshared is nonzero, then the semaphore is shared between
+       processes, and should be located in a region of shared memory
+     */
 
     //initialize mutex:
     //        fprintf(stderr, "pthread_mutexattr_setpshared failed: %s\n", strerror(ret));
@@ -128,26 +132,24 @@ int main(int argc, char* argv[]) {
     int pma_error = pthread_mutexattr_init(&(ring_buffer_ptr->mutex_buffer_attr));
     if(pma_error != 0){
         fprintf(stderr, "pthread_mutexattr_init failed: %s\n", strerror(pma_error));
-        shm_clean_before_exit(name, fd);
         sem_clean_before_exit(ring_buffer_ptr);
+        shm_clean_before_exit(name, fd);
         exit(EXIT_FAILURE);
     }
     pma_error = pthread_mutexattr_setpshared(&(ring_buffer_ptr->mutex_buffer_attr), PTHREAD_PROCESS_SHARED);
     if(pma_error != 0){
         fprintf(stderr, "pthread_mutexattr_setpshared failed: %s\n", strerror(pma_error));
-        shm_clean_before_exit(name, fd);
         sem_clean_before_exit(ring_buffer_ptr);
+        shm_clean_before_exit(name, fd);
         exit(EXIT_FAILURE);
     }
 
     //initialize mutex:
     pthread_mutex_init(&(ring_buffer_ptr->mutex_buffer), &(ring_buffer_ptr->mutex_buffer_attr));
+    //always returns 0 -> no checking useful
 
 
-    /*
-     * If pshared is nonzero, then the semaphore is shared between
-       processes, and should be located in a region of shared memory
-     */
+
 
     //Next, two child processes are created.
     //The processes run in parallel and perform calculations on the buffer:
@@ -156,8 +158,9 @@ int main(int argc, char* argv[]) {
         errno = 0;
         pid_t pid = fork();
         if(fork_error_check(pid)){
-            shm_clean_before_exit(name, fd);
+            pthread_mutex_destroy(&(ring_buffer_ptr->mutex_buffer));
             sem_clean_before_exit(ring_buffer_ptr);
+            shm_clean_before_exit(name, fd);
             exit(EXIT_FAILURE);
 
         }
@@ -197,15 +200,11 @@ int main(int argc, char* argv[]) {
                         sem_wait(&(ring_buffer_ptr->data_available));
                         //decrements data_available by 1, ONLY if currently >0. otherwise waits
 
-                        //todo: check if mutex is needed here.
                         pthread_mutex_lock(&(ring_buffer_ptr->mutex_buffer));
                         ring_buffer_pop(ring_buffer_ptr, buffersize, data_transfer);
                         pthread_mutex_unlock(&(ring_buffer_ptr->mutex_buffer));
 
-
-                        //fprintf(stderr, "data_transfer = %ld\n", *data_transfer);
                         temp +=  *data_transfer;
-                        //fprintf(stderr, "temp = %ld\n", temp);
 
                         sem_post(&(ring_buffer_ptr->free_space_available));
 
@@ -213,8 +212,6 @@ int main(int argc, char* argv[]) {
                     free(data_transfer);
 
                     //after loop: write to struct once.
-                    //todo: debug
-                    fprintf(stderr, "temp before write to ->result: %lu\n", temp);
                     ring_buffer_ptr->result = temp;
                     exit(EXIT_SUCCESS);
                     break;
@@ -234,6 +231,8 @@ int main(int argc, char* argv[]) {
         int wait_error = wait(NULL);
         if(wait_error<0){
             perror("Wait: ");
+            pthread_mutex_destroy(&(ring_buffer_ptr->mutex_buffer));
+            sem_clean_before_exit(ring_buffer_ptr);
             shm_clean_before_exit(name, fd);
             exit(EXIT_FAILURE);
         }
@@ -242,11 +241,15 @@ int main(int argc, char* argv[]) {
     printf("Result: %lu\n", ring_buffer_ptr->result);
     validate_result(ring_buffer_ptr->result, K, N);
 
-    //TODO: handel pthread_mutex cleanup for all exit()
-    shm_clean_before_exit(name, fd);
+
+    pthread_mutex_destroy(&(ring_buffer_ptr->mutex_buffer));
     sem_clean_before_exit(ring_buffer_ptr);
+    shm_clean_before_exit(name, fd);
     exit(EXIT_SUCCESS);
 }
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//helper functions:
+
 
 bool sem_init_error(int sem_ret) {
     if(sem_ret < 0){
@@ -258,8 +261,7 @@ bool sem_init_error(int sem_ret) {
         return false;
     }
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////
-//helper functions:
+
 
 
 void ring_buffer_init(RingBuffer* ringBuffer){
@@ -278,8 +280,7 @@ bool ring_buffer_push(RingBuffer* buf, uint64_t buffersize, uint64_t data){
     if(ring_buffer_is_full(buf, buffersize)) {return false;}
     else{
 
-        memcpy(&(buf->buffer[buf->head]), &data, sizeof(uint64_t)); //TODO: See if works!
-        fprintf(stderr, "buf->buffer[buf->head] = %lu\n", buf->buffer[buf->head]);
+        memcpy(&(buf->buffer[buf->head]), &data, sizeof(uint64_t));
         buf->head = (buf->head+1)%buffersize; //move buffer head forward, because we have written to the buffer.
         // %buffersize because we have a "ring" buffer
         return true;
@@ -290,11 +291,7 @@ bool ring_buffer_push(RingBuffer* buf, uint64_t buffersize, uint64_t data){
 bool ring_buffer_pop(RingBuffer* buf, uint64_t buffersize, uint64_t* data_transfer){
     if(ring_buffer_is_empty(buf)) {return false;}
     else{
-        *data_transfer = (buf->buffer[buf->tail]); //todo: check if workig
-        //memcpy(&data_transfer, &(buf->buffer[buf->tail]), sizeof(uint64_t)); //TODO: See if works!
-        //todo: debug
-        fprintf(stderr, "pop: %lu\n", *data_transfer);
-
+        *data_transfer = (buf->buffer[buf->tail]);
         buf->tail = (buf->tail+1)%buffersize; //move buffer tail forward, because we have taken one item from the buffer.
         // %buffersize because we have a "ring" buffer
         return true;
@@ -312,7 +309,7 @@ void validate_result(uint64_t result, const uint64_t K, const uint64_t N) {
 
 bool fork_error_check(pid_t pid) {
     if(pid < 0){
-        //todo: set errno = 0 before fork() call!
+        //set errno = 0 before fork() call!
         perror("Fork failed");
         return true;
     }
