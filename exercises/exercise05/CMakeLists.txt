@@ -3,10 +3,14 @@ project(exercise05 C)
 
 set(CMAKE_C_STANDARD 11)
 
-add_executable(exercise05
+add_executable(exercise05_task2
         task2/task2.c
 )
 
 add_executable(exercise05crispin
         task2crispin/task2crispin.c
+)
+
+add_executable(exercise05_task3
+        task3/task3.c
 )

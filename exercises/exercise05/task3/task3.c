@@ -1,0 +1,360 @@
+/*
+ * Linking
+       Programs using the POSIX shared memory API must be compiled with
+       cc -lrt to link against the real-time library, librt.
+ */
+
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <stdint.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <stdbool.h>
+#include <string.h>
+#include <stdatomic.h>
+#include <semaphore.h>
+#include <pthread.h>
+
+typedef struct RingBuffer {
+    uint64_t head;
+    uint64_t tail;
+    sem_t free_space_available;
+    sem_t data_available;
+    pthread_mutex_t mutex_buffer;
+    pthread_mutexattr_t mutex_buffer_attr;
+    _Atomic uint64_t result;
+    uint64_t buffer[];      //must be last in struct!
+}RingBuffer;
+
+void check_argc(int argc);
+unsigned long long int cast_to_ulli_with_check(char* string);
+
+void shm_clean_before_exit(const char *name, int fd);
+bool fork_error_check(pid_t pid);
+void validate_result(uint64_t result, const uint64_t K, const uint64_t N);
+void ring_buffer_init(RingBuffer* ringBuffer);
+bool ring_buffer_is_full(RingBuffer* buf, uint64_t buffersize);
+bool ring_buffer_is_empty(RingBuffer* buf);
+bool ring_buffer_push(RingBuffer* buf, uint64_t buffersize, uint64_t data);
+bool ring_buffer_pop(RingBuffer* buf, uint64_t buffersize, uint64_t* data_transfer);
+void sem_clean_before_exit(RingBuffer* ring_buffer_ptr);
+
+
+bool sem_init_error(int sem_ret);
+
+int main(int argc, char* argv[]) {
+    check_argc(argc);
+
+    uint64_t N = cast_to_ulli_with_check(argv[1]);     //N, an arbitrary integer
+    uint64_t K = cast_to_ulli_with_check(argv[2]);     //K, number of reads/writes to the buffer
+    uint64_t L = cast_to_ulli_with_check(argv[3]);     //L, the length of the circular buffer (total size: L * sizeof(uint64_t))
+    uint64_t buffersize = L * sizeof(uint64_t);     //RingBuffer: WHY THIS STILL WORK WITH 0 ???
+
+
+    //RingBuffer: for dev only:
+    //fprintf(stderr, "N = %lu\n", N);
+    //fprintf(stderr, "K = %lu\n", K);
+    //fprintf(stderr, "L = %lu\n", L);
+    //fprintf(stderr, "buffersize = %lu\n", buffersize);
+
+
+    //set up shared memory for communication.
+    // It contains a circular buffer and one element for the result.
+
+    //shm_open()
+    errno = 0;
+    const char* name = "/shared_memory";
+    const int oflag = O_RDWR | O_CREAT | O_EXCL;
+    const mode_t permission = S_IRUSR | S_IWUSR;
+    int fd = shm_open(name, oflag, permission);
+    if(fd<0){
+        perror("shm_open");
+        shm_clean_before_exit(name, fd);
+        exit(EXIT_FAILURE);
+    }
+
+    //ftruncate()
+    const size_t shared_mem_size = sizeof(RingBuffer) + buffersize;
+    errno = 0;
+    int ftrunc_error = ftruncate(fd, shared_mem_size);
+    if(ftrunc_error < 0){
+        perror("ftruncate");
+        shm_clean_before_exit(name, fd);
+        exit(EXIT_FAILURE);
+    }
+
+    //mmap()    //why here on slides char* instead of void* ? -> because char is exactly size of 1 byte.
+                //here more useful for me: RingBuffer
+    /*
+     * After the mmap() call has returned, the file descriptor, fd, can
+       be closed immediately without invalidating the mapping. https://man7.org/linux/man-pages/man2/mmap.2.html
+     */
+    errno=0;
+    RingBuffer* ring_buffer_ptr = mmap(NULL, shared_mem_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if(ring_buffer_ptr == MAP_FAILED){
+        perror("mmap");
+        shm_clean_before_exit(name, fd);
+        exit(EXIT_FAILURE);
+    }
+
+
+    //initialize Ringbuffer and semaphores:
+    ring_buffer_init(ring_buffer_ptr);  //initialize head and tail to 0
+    errno=0;
+    int sem_ret;
+    sem_ret = sem_init(&(ring_buffer_ptr->free_space_available), true, buffersize-1);
+    if(sem_init_error(sem_ret)){
+        shm_clean_before_exit(name, fd);
+        exit(EXIT_FAILURE);
+    }
+    errno=0;
+    sem_ret = sem_init(&(ring_buffer_ptr->data_available), true, 0);
+    if(sem_init_error(sem_ret)){
+        sem_destroy(&(ring_buffer_ptr->free_space_available));//here the previous sem must be destroyed.
+        shm_clean_before_exit(name, fd);
+        exit(EXIT_FAILURE);
+    }
+
+    //initialize mutex:
+    //        fprintf(stderr, "pthread_mutexattr_setpshared failed: %s\n", strerror(ret));
+    //needs special attention for usage with shared memory.
+
+    //initialize Attributes of mutex:
+    int pma_error = pthread_mutexattr_init(&(ring_buffer_ptr->mutex_buffer_attr));
+    if(pma_error != 0){
+        fprintf(stderr, "pthread_mutexattr_init failed: %s\n", strerror(pma_error));
+        shm_clean_before_exit(name, fd);
+        sem_clean_before_exit(ring_buffer_ptr);
+        exit(EXIT_FAILURE);
+    }
+    pma_error = pthread_mutexattr_setpshared(&(ring_buffer_ptr->mutex_buffer_attr), PTHREAD_PROCESS_SHARED);
+    if(pma_error != 0){
+        fprintf(stderr, "pthread_mutexattr_setpshared failed: %s\n", strerror(pma_error));
+        shm_clean_before_exit(name, fd);
+        sem_clean_before_exit(ring_buffer_ptr);
+        exit(EXIT_FAILURE);
+    }
+
+    //initialize mutex:
+    pthread_mutex_init(&(ring_buffer_ptr->mutex_buffer), &(ring_buffer_ptr->mutex_buffer_attr));
+
+
+    /*
+     * If pshared is nonzero, then the semaphore is shared between
+       processes, and should be located in a region of shared memory
+     */
+
+    //Next, two child processes are created.
+    //The processes run in parallel and perform calculations on the buffer:
+
+    for (int i = 0; i < 2; ++i) {
+        errno = 0;
+        pid_t pid = fork();
+        if(fork_error_check(pid)){
+            shm_clean_before_exit(name, fd);
+            sem_clean_before_exit(ring_buffer_ptr);
+            exit(EXIT_FAILURE);
+
+        }
+        if(pid == 0){
+            switch (i) {
+                case 0: {   //child A:  "Producer"
+                    /*The process loops K times, starting from 0.
+                     * In each iteration (i), the number N * (i + 1) is written into position i % L of the circular buffer.
+                     */
+                    for (uint64_t j = 0; j < K; ++j) {
+
+                        sem_wait(&(ring_buffer_ptr->free_space_available));
+                            //decrements free_space_available by 1, ONLY if currently >0. otherwise waits
+
+                        //todo: check if mutex is needed here! -> seems like it
+                        pthread_mutex_lock(&(ring_buffer_ptr->mutex_buffer));
+                        int number = N * (j+1);
+                        ring_buffer_push(ring_buffer_ptr, buffersize, number);  //TODO: see if works
+                        pthread_mutex_unlock(&(ring_buffer_ptr->mutex_buffer));
+
+
+                        sem_post(&(ring_buffer_ptr->data_available));   //increments data_available by 1
+
+                    }
+                    exit(EXIT_SUCCESS);
+                    break;
+                }
+                case 1:{    //child B.  "Consumer"
+                    /*The process computes the sum of each element in the circular buffer.
+                     * It prints the final result, and writes it into the result element in the shared memory.
+                     */
+
+                    uint64_t temp =0;
+                    uint64_t* data_transfer = malloc(sizeof(*data_transfer));
+                    for (uint64_t j = 0; j < K; ++j) {
+
+                        sem_wait(&(ring_buffer_ptr->data_available));
+                        //decrements data_available by 1, ONLY if currently >0. otherwise waits
+
+                        //todo: check if mutex is needed here.
+                        pthread_mutex_lock(&(ring_buffer_ptr->mutex_buffer));
+                        ring_buffer_pop(ring_buffer_ptr, buffersize, data_transfer);
+                        pthread_mutex_unlock(&(ring_buffer_ptr->mutex_buffer));
+
+
+                        //fprintf(stderr, "data_transfer = %ld\n", *data_transfer);
+                        temp +=  *data_transfer;
+                        //fprintf(stderr, "temp = %ld\n", temp);
+
+                        sem_post(&(ring_buffer_ptr->free_space_available));
+
+                    }
+                    free(data_transfer);
+
+                    //after loop: write to struct once.
+                    //todo: debug
+                    fprintf(stderr, "temp before write to ->result: %lu\n", temp);
+                    ring_buffer_ptr->result = temp;
+                    exit(EXIT_SUCCESS);
+                    break;
+                }
+            }
+        }
+    }
+
+    //this is parent:
+    /*The parent process waits for the termination of both child processes.
+     * It reads the result of their computation from the result element in the shared memory. (And prints it.)
+     * It then validates the result of the computation using the following function. -> validate_result(uint64_t result, const uint64_t K, const uint64_t N)
+     * It then finishes up, and returns success.
+     */
+    for (int i = 0; i < 2; ++i) {
+        errno = 0;
+        int wait_error = wait(NULL);
+        if(wait_error<0){
+            perror("Wait: ");
+            shm_clean_before_exit(name, fd);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    printf("Result: %lu\n", ring_buffer_ptr->result);
+    validate_result(ring_buffer_ptr->result, K, N);
+
+    //TODO: handel pthread_mutex cleanup for all exit()
+    shm_clean_before_exit(name, fd);
+    sem_clean_before_exit(ring_buffer_ptr);
+    exit(EXIT_SUCCESS);
+}
+
+bool sem_init_error(int sem_ret) {
+    if(sem_ret < 0){
+        perror("sem_init");
+        //If sem_init() fails, the semaphore is not initialized and should not be destroyed.
+        return true;
+    }
+    else{
+        return false;
+    }
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//helper functions:
+
+
+void ring_buffer_init(RingBuffer* ringBuffer){
+    ringBuffer->head = 0;
+    ringBuffer->tail = 0;
+}
+
+bool ring_buffer_is_full(RingBuffer* buf, uint64_t buffersize){
+    return ((buf->head + 1) % buffersize) ==buf->tail;  //+1 because for RingBuffer one variant is to leave one space empty to differentiate full from empty.
+}
+bool ring_buffer_is_empty(RingBuffer* buf){
+    return buf->head == buf->tail;
+}
+
+bool ring_buffer_push(RingBuffer* buf, uint64_t buffersize, uint64_t data){
+    if(ring_buffer_is_full(buf, buffersize)) {return false;}
+    else{
+
+        memcpy(&(buf->buffer[buf->head]), &data, sizeof(uint64_t)); //TODO: See if works!
+        fprintf(stderr, "buf->buffer[buf->head] = %lu\n", buf->buffer[buf->head]);
+        buf->head = (buf->head+1)%buffersize; //move buffer head forward, because we have written to the buffer.
+        // %buffersize because we have a "ring" buffer
+        return true;
+    }
+}
+
+
+bool ring_buffer_pop(RingBuffer* buf, uint64_t buffersize, uint64_t* data_transfer){
+    if(ring_buffer_is_empty(buf)) {return false;}
+    else{
+        *data_transfer = (buf->buffer[buf->tail]); //todo: check if workig
+        //memcpy(&data_transfer, &(buf->buffer[buf->tail]), sizeof(uint64_t)); //TODO: See if works!
+        //todo: debug
+        fprintf(stderr, "pop: %lu\n", *data_transfer);
+
+        buf->tail = (buf->tail+1)%buffersize; //move buffer tail forward, because we have taken one item from the buffer.
+        // %buffersize because we have a "ring" buffer
+        return true;
+    }
+}
+
+//supplied by PS_team
+void validate_result(uint64_t result, const uint64_t K, const uint64_t N) {
+    for (uint64_t i = 0; i < K; i++) {
+        result -= N * (i + 1);
+    }
+    printf("Checksum: %lu \n", result);
+}
+
+
+bool fork_error_check(pid_t pid) {
+    if(pid < 0){
+        //todo: set errno = 0 before fork() call!
+        perror("Fork failed");
+        return true;
+    }
+    else{
+        return false;
+    }
+}
+
+
+
+void shm_clean_before_exit(const char *name, int fd) {
+    close(fd);
+    shm_unlink(name);
+}
+
+void sem_clean_before_exit(RingBuffer* ring_buffer_ptr){
+    sem_destroy(&(ring_buffer_ptr->free_space_available));
+    sem_destroy(&(ring_buffer_ptr->data_available));
+}
+
+void check_argc(int argc) {
+    if (argc < 4 || argc > 4) {
+        printf("usage: ."__FILE__" < 3  ints>");
+        exit(EXIT_FAILURE);
+    }
+}
+
+unsigned long long int cast_to_ulli_with_check(char* string) {
+    errno = 0;
+    char *end = NULL;
+    unsigned long long operand = strtoull(string, &end, 10);
+    //check conversion:
+    if ((*end != '\0') || (string == end)) {       //conversion interrupted || no conversion happened
+        perror("StrToULL");
+        exit(EXIT_FAILURE);
+    }
+    if (errno != 0) {        //== ERANGE //as alternative to != 0
+        perror("Conversion of argument ended with error");
+        fprintf(stderr, "usage: ."__FILE__" <number of files> \n");
+        exit(EXIT_FAILURE);
+    }
+    return operand;
+}
+
+

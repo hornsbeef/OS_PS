@@ -4,7 +4,7 @@ CFLAGS = -std=c11 -Wall -Wextra -D_POSIX_C_SOURCE=199309L -lrt -D_BSD_SOURCE -g
 CC = cc
 
 files_to_clean = *.o $(files_to_compile) valgrind_*.txt
-files_to_compile = task2
+files_to_compile = task3
 
 #might be problematic with multi-file make
 program_args = 100000 100000 100000

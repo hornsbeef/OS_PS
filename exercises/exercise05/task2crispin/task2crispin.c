@@ -98,7 +98,7 @@ int init_shared_struct(shared_memory* shared, bool create, int L)
         return EXIT_FAILURE;
     }
 
-    //TODO: JUST TESTING
+    //RingBuffer: JUST TESTING
     shared->ptr->buffer[shm_size+1] = 33;
     fprintf(stderr, "shm_size =  %lu\n", shm_size);
     fprintf(stderr, "TESTING: Buffer[shm_size] = %lu\n", shared->ptr->buffer[shm_size+1]);
@@ -142,7 +142,7 @@ int child_B(int64_t L)
     }
     printf("Result: %"PRId64"\n", shared.ptr->result);
 
-    sleep(10);
+    //sleep(10);
 
     return EXIT_SUCCESS;
 }

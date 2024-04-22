@@ -14,18 +14,19 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <stdbool.h>
 
 void check_argc(int argc);
 unsigned long long int cast_to_ulli_with_check(char* string);
 
-void clean_before_exit(const char *name, int fd);
-void fork_error_check(pid_t pid);
+void shm_clean_before_exit(const char *name, int fd);
+bool fork_error_check(pid_t pid);
 void validate_result(uint64_t result, const uint64_t K, const uint64_t N);
 
-typedef struct TODO {
+typedef struct RingBuffer {
     uint64_t result;
     uint64_t buffer[];
-}TODO_t;
+}RingBuffer;
 
 
 int main(int argc, char* argv[]) {
@@ -34,17 +35,16 @@ int main(int argc, char* argv[]) {
     uint64_t N = cast_to_ulli_with_check(argv[1]);     //N, an arbitrary integer
     uint64_t K = cast_to_ulli_with_check(argv[2]);     //K, number of reads/writes to the buffer
     uint64_t L = cast_to_ulli_with_check(argv[3]);     //L, the length of the circular buffer (total size: L * sizeof(uint64_t))
-    uint64_t buffersize = L * sizeof(uint64_t);     //TODO: WHY THIS STILL WORK WITH 0 ???
+    uint64_t buffersize = L * sizeof(uint64_t);     //RingBuffer: WHY THIS STILL WORK WITH 0 ???
 
 
-    //TODO: for dev only:
+    //RingBuffer: for dev only:
     //fprintf(stderr, "N = %lu\n", N);
     //fprintf(stderr, "K = %lu\n", K);
     //fprintf(stderr, "L = %lu\n", L);
     //fprintf(stderr, "buffersize = %lu\n", buffersize);
 
 
-    //TODO:
     //set up shared memory for communication.
     // It contains a circular buffer and one element for the result.
 
@@ -56,47 +56,34 @@ int main(int argc, char* argv[]) {
     int fd = shm_open(name, oflag, permission);
     if(fd<0){
         perror("shm_open");
-        clean_before_exit(name, fd);
+        shm_clean_before_exit(name, fd);
         exit(EXIT_FAILURE);
     }
 
     //ftruncate()
-    const size_t shared_mem_size = sizeof(TODO_t) + buffersize;      //TODO: chekc if this is correct -> something strange going on here!!
+    const size_t shared_mem_size = sizeof(RingBuffer) + buffersize;
     errno = 0;
     int ftrunc_error = ftruncate(fd, shared_mem_size);
     if(ftrunc_error < 0){
         perror("ftruncate");
-        clean_before_exit(name, fd);
+        shm_clean_before_exit(name, fd);
         exit(EXIT_FAILURE);
     }
 
-    //mmap()    //todo: why here on slides char* instead of void* ?
+    //mmap()    //why here on slides char* instead of void* ? -> because char is exactly size of 1 byte.
+                //here more useful for me: RingBuffer
     /*
      * After the mmap() call has returned, the file descriptor, fd, can
        be closed immediately without invalidating the mapping. https://man7.org/linux/man-pages/man2/mmap.2.html
      */
     errno=0;
-    TODO_t* todo_ptr = mmap(NULL, shared_mem_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    RingBuffer* todo_ptr = mmap(NULL, shared_mem_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if(todo_ptr == MAP_FAILED){
         perror("mmap");
-        clean_before_exit(name, fd);
+        shm_clean_before_exit(name, fd);
         exit(EXIT_FAILURE);
     }
 
-/*
-    //TODO:
-    todo_ptr->buffer[buffersize+1] = (uint64_t) 33;                     //TODO: WHY IS THIS WORKING???
-    fprintf(stderr,"WHY THIS WORKING? %lu\n", todo_ptr->buffer[buffersize+1]);//TODO: WHY IS THIS WORKING???
-    todo_ptr->result = 123;
-    fprintf(stderr,"WHY THIS WORKING? %lu\n", todo_ptr->result);//TODO: WHY IS THIS WORKING???
-    //TODO:END
-
-    for (int i = 0; i < 99999; ++i) {       //gets to 510
-        todo_ptr->buffer[i] =  i;                     //TODO: WHY IS THIS WORKING???
-        fprintf(stderr,"WHY THIS WORKING? %lu\n", todo_ptr->buffer[i]);//TODO: WHY IS THIS WORKING???
-
-    }
-*/
 
     //Next, two child processes are created.
     //The processes run in parallel and perform calculations on the buffer:
@@ -107,7 +94,10 @@ int main(int argc, char* argv[]) {
         fork_error_check(pid);
         if(pid == 0){
             switch (i) {
-                case 0: {
+                case 0: {   //child A:
+                    /*The process loops K times, starting from 0.
+                     * In each iteration (i), the number N * (i + 1) is written into position i % L of the circular buffer.
+                     */
                     for (uint64_t j = 0; j < K; ++j) {
                         int number = N * (j+1);
                         todo_ptr->buffer[j%L] = number;
@@ -115,7 +105,7 @@ int main(int argc, char* argv[]) {
                     exit(EXIT_SUCCESS);
                     break;
                 }
-                case 1:{
+                case 1:{    //child B.
                     /*The process computes the sum of each element in the circular buffer.
                      * It prints the final result, and writes it into the result element in the shared memory.
                      */
@@ -133,12 +123,17 @@ int main(int argc, char* argv[]) {
     }
 
     //this is parent:
+    /*The parent process waits for the termination of both child processes.
+     * It reads the result of their computation from the result element in the shared memory. (And prints it.)
+     * It then validates the result of the computation using the following function. -> validate_result(uint64_t result, const uint64_t K, const uint64_t N)
+     * It then finishes up, and returns success.
+     */
     for (int i = 0; i < 2; ++i) {
         errno = 0;
         int wait_error = wait(NULL);
         if(wait_error<0){
             perror("Wait: ");
-            clean_before_exit(name, fd);
+            shm_clean_before_exit(name, fd);
             exit(EXIT_FAILURE);
         }
     }
@@ -147,11 +142,50 @@ int main(int argc, char* argv[]) {
     validate_result(todo_ptr->result, K, N);
 
 
-    clean_before_exit(name, fd);
+    shm_clean_before_exit(name, fd);
     exit(EXIT_SUCCESS);
-
-
 }
+/*You will notice that the result is not always correct. This is by design and does not indicate an implementation mistake.
+
+    Test your implementation with different values for N, K, and L.
+    What is the checksum indicating?    -> if the computation was correct (by chance) or
+                                            if (due to non-synchronisation) the computation is incorrect.
+        Which values are correct vs. incorrect?
+        &&
+        How can the checksum be used to tell if a result is correct or not?
+            -> judging by the validate_result function, the result is correct, when the Checksum == 0,
+            as the validate-fct does the same computation the two child-processes do, but without race-conditions.
+
+ My results:
+N:1; K1; L1;
+ consistent:
+ Result: 1
+Checksum: 0
+ ////
+N:1 K:100_000; L1;  -> K is number of reads/writes to the buffer
+            -> more read/writes increases probability that "chance-synchronisation" is not working :)
+    -> inconsistent
+ ////
+N:100_000; K:1; L1;
+ consistent:
+ Result: 100000
+Checksum: 0
+ ////
+N:1; K:1; L 100_000
+ consistent:
+Result: 1
+Checksum: 0
+ ////
+N:100000 K:1 L:100000
+ consistent:
+ Result: 100000
+Checksum: 0
+
+*/
+
+
+
+
 
 void validate_result(uint64_t result, const uint64_t K, const uint64_t N) {
     for (uint64_t i = 0; i < K; i++) {
@@ -161,7 +195,7 @@ void validate_result(uint64_t result, const uint64_t K, const uint64_t N) {
 }
 
 
-void fork_error_check(pid_t pid) {
+bool fork_error_check(pid_t pid) {
     if(pid < 0){
         //todo: set errno = 0 before fork() call!
         perror("Fork failed");
@@ -171,7 +205,7 @@ void fork_error_check(pid_t pid) {
 
 
 
-void clean_before_exit(const char *name, int fd) {
+void shm_clean_before_exit(const char *name, int fd) {
     close(fd);
     shm_unlink(name);
 }
