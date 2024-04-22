@@ -7,8 +7,9 @@ files_to_clean = *.o $(files_to_compile) valgrind_*.txt
 files_to_compile = task3
 
 #might be problematic with multi-file make
-program_args = 100000 100000 100000
-
+program_args = 10000000 10000001 10000000
+#320440000 30420000 30400000
+#buffersize = 80000000
 
 
 all: $(files_to_compile:%=%.o)
@@ -36,6 +37,10 @@ clean:
 .PHONY: valgrind
 valgrind:
 	valgrind --tool=memcheck --log-file="valgrind_$(files_to_compile).txt" --verbose --trace-children=yes ./$(files_to_compile) $(program_args)
+
+.PHONY: time
+time:
+	/usr/bin/time -p ./$(files_to_compile) $(program_args)
 
 
 

@@ -1,0 +1,51 @@
+/usr/bin/time -p ./task3 10000000 10000001 10000000
+Result: 1938060009852106368
+Checksum: 0
+make: Leaving directory '/home/hornsbeef/Nextcloud/Com_Science_Studies/2Sem/BS_PS/git/OS_PS/exercises/exercise05/task3'
+real 0.57
+user 1.02
+sys 0.08
+
+/usr/bin/time -p ./task2 320440000 30420000 30400000
+Result: 65602737824640000
+Checksum: 11182785322800529408
+real 0.26
+user 0.25
+sys 0.14
+
+
+
+    What is the difference between shared memory and e.g. a global variable after calling fork()?
+    changes to global var after the fork() are not visible to other processes.
+
+
+    What is a race condition? Why do race conditions occur?
+    -race condition is a situation in which the behavior of a system or device depends on the sequence or timing of other events
+    -can occur when multiple threads or processes access shared resources or execute the same piece of code at the same time
+
+
+    Is the output of a program with a race condition always incorrect?
+    -no depends on chance
+
+    If you run your program 100 times and always get the correct result, does that mean that there is no race condition?
+    -no, depends on chance
+
+    What is a critical section? What role does it play in preventing race conditions?
+    is a section of code that is executed by multiple threads/processes and where the sequence of execution for the threads/processes makes a difference in the result
+    Critical sections play a crucial role in preventing race conditions, because these sections must be properly synchronised.
+
+    What is synchronization?
+    making sure, that operations occur in the right order across multiple threads/processes
+
+    Why are semaphores well suited for synchronizing such programs?
+    well suited for producer-consumer scenarios , by using a semaphore to indicate the availability of a resource and enforce the order of access
+
+    Could you use also one semaphore to solve this this program?
+    not while retaining a useful level of parallelism -> could use one semaphore as binary-semaphore and schedule read and write ops concurrently
+
+    There are two ways of creating a POSIX semaphore. Which would you use when?
+    sem_init() function for anonymous semaphores
+        useful when using shared memory
+    sem_open() function for named semaphores
+        allows for the creation or opening of a semaphore that can be shared between processes without need of shared memory
+

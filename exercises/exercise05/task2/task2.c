@@ -1,3 +1,7 @@
+#define _POSIX_C_SOURCE 199309L
+#define _DEFAULT_SOURCE
+// #define _BSD_SOURCE
+
 /*
  * Linking
        Programs using the POSIX shared memory API must be compiled with
@@ -20,7 +24,7 @@ void check_argc(int argc);
 unsigned long long int cast_to_ulli_with_check(char* string);
 
 void shm_clean_before_exit(const char *name, int fd);
-bool fork_error_check(pid_t pid);
+void fork_error_check(pid_t pid);
 void validate_result(uint64_t result, const uint64_t K, const uint64_t N);
 
 typedef struct RingBuffer {
@@ -99,7 +103,7 @@ int main(int argc, char* argv[]) {
                      * In each iteration (i), the number N * (i + 1) is written into position i % L of the circular buffer.
                      */
                     for (uint64_t j = 0; j < K; ++j) {
-                        int number = N * (j+1);
+                        uint64_t number = N * (j+1);
                         todo_ptr->buffer[j%L] = number;
                     }
                     exit(EXIT_SUCCESS);
@@ -195,7 +199,7 @@ void validate_result(uint64_t result, const uint64_t K, const uint64_t N) {
 }
 
 
-bool fork_error_check(pid_t pid) {
+void fork_error_check(pid_t pid) {
     if(pid < 0){
         //todo: set errno = 0 before fork() call!
         perror("Fork failed");

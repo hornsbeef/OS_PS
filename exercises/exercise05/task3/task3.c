@@ -1,10 +1,21 @@
+#define _POSIX_C_SOURCE 199309L
+#define _DEFAULT_SOURCE
+// #define _BSD_SOURCE
+
 /*
  * Linking
        Programs using the POSIX shared memory API must be compiled with
        cc -lrt to link against the real-time library, librt.
  */
 
+//TODO: include signal handler for cleanup when terminating program
+// -> requires partial re-write with inclusion of all parameters in struct for better handling.
+// ?how to handle different "times" of crash, when not everything is set up?
 
+//TODO: Why is the other push / pop functionality not working for large numbers?
+
+//#define _GNU_SOURCE     //<<-essential for compiler...
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -20,6 +31,12 @@
 #include <semaphore.h>
 #include <pthread.h>
 
+#define DEBUG 0
+#define MUTEX 0
+
+// Global flag to indicate when the signal has been received
+volatile sig_atomic_t signal_received = 0;
+
 typedef struct RingBuffer {
     uint64_t head;
     uint64_t tail;
@@ -33,32 +50,35 @@ typedef struct RingBuffer {
 
 void check_argc(int argc);
 unsigned long long int cast_to_ulli_with_check(char* string);
-
 void shm_clean_before_exit(const char *name, int fd);
 bool fork_error_check(pid_t pid);
 void validate_result(uint64_t result, const uint64_t K, const uint64_t N);
 void ring_buffer_init(RingBuffer* ringBuffer);
 bool ring_buffer_is_full(RingBuffer* buf, uint64_t buffersize);
 bool ring_buffer_is_empty(RingBuffer* buf);
-bool ring_buffer_push(RingBuffer* buf, uint64_t buffersize, uint64_t data);
-bool ring_buffer_pop(RingBuffer* buf, uint64_t buffersize, uint64_t* data_transfer);
+
+bool ring_buffer_push(RingBuffer *buf, uint64_t buffersize, uint64_t *data_transfer_in, uint64_t i, uint64_t L);
+
+bool ring_buffer_pop(RingBuffer *buf, uint64_t buffersize, uint64_t *data_transfer, uint64_t i, uint64_t L);
 void sem_clean_before_exit(RingBuffer* ring_buffer_ptr);
 
 
 bool sem_init_error(int sem_ret);
 
+
+
 int main(int argc, char* argv[]) {
     check_argc(argc);
 
     uint64_t N = cast_to_ulli_with_check(argv[1]);     //N, an arbitrary integer
-    uint64_t K = cast_to_ulli_with_check(argv[2]);     //K, number of reads/writes to the buffer
+    uint64_t K_debug = cast_to_ulli_with_check(argv[2]);     //K_debug, number of reads/writes to the buffer
     uint64_t L = cast_to_ulli_with_check(argv[3]);     //L, the length of the circular buffer (total size: L * sizeof(uint64_t))
-    uint64_t buffersize = L * sizeof(uint64_t);     //RingBuffer: WHY THIS STILL WORK WITH 0 ???
+    uint64_t buffersize = (L * sizeof(uint64_t));     //RingBuffer: WHY THIS STILL WORK WITH 0 ???
 
 
     //RingBuffer: for dev only:
     //fprintf(stderr, "N = %lu\n", N);
-    //fprintf(stderr, "K = %lu\n", K);
+    //fprintf(stderr, "K_debug = %lu\n", K_debug);
     //fprintf(stderr, "L = %lu\n", L);
     //fprintf(stderr, "buffersize = %lu\n", buffersize);
 
@@ -79,17 +99,19 @@ int main(int argc, char* argv[]) {
     }
 
     //ftruncate()
-    const size_t shared_mem_size = sizeof(RingBuffer) + buffersize;
+    //const size_t shared_mem_size = sizeof(RingBuffer) + buffersize;
+    uint64_t shared_mem_size = sizeof(RingBuffer) + buffersize;
     errno = 0;
-    int ftrunc_error = ftruncate(fd, shared_mem_size);
+    int ftrunc_error = ftruncate(fd, shared_mem_size);  //Todo: maybe error here?
     if(ftrunc_error < 0){
         perror("ftruncate");
         shm_clean_before_exit(name, fd);
         exit(EXIT_FAILURE);
     }
 
-    //mmap()    //why here on slides char* instead of void* ? -> because char is exactly size of 1 byte.
-                //here more useful for me: RingBuffer
+    //mmap()
+    // why here on slides char* instead of void* ? -> because char is exactly size of 1 byte.
+    //here more useful for me: RingBuffer
     /*
      * After the mmap() call has returned, the file descriptor, fd, can
        be closed immediately without invalidating the mapping. https://man7.org/linux/man-pages/man2/mmap.2.html
@@ -167,24 +189,28 @@ int main(int argc, char* argv[]) {
         if(pid == 0){
             switch (i) {
                 case 0: {   //child A:  "Producer"
-                    /*The process loops K times, starting from 0.
+                    /*The process loops K_debug times, starting from 0.
                      * In each iteration (i), the number N * (i + 1) is written into position i % L of the circular buffer.
                      */
-                    for (uint64_t j = 0; j < K; ++j) {
+                    uint64_t* data_transfer_in = malloc(sizeof(*data_transfer_in));
+                    for (uint64_t j = 0; j < K_debug; ++j) {
 
                         sem_wait(&(ring_buffer_ptr->free_space_available));
                             //decrements free_space_available by 1, ONLY if currently >0. otherwise waits
 
-                        //todo: check if mutex is needed here! -> seems like it
+#if MUTEX
                         pthread_mutex_lock(&(ring_buffer_ptr->mutex_buffer));
-                        int number = N * (j+1);
-                        ring_buffer_push(ring_buffer_ptr, buffersize, number);  //TODO: see if works
+#endif
+                        *data_transfer_in = N * (j+1);    //dont mix data types... (int was causing wrong number!)
+                        ring_buffer_push(ring_buffer_ptr, buffersize, data_transfer_in, j, L);
+#if MUTEX
                         pthread_mutex_unlock(&(ring_buffer_ptr->mutex_buffer));
-
+#endif
 
                         sem_post(&(ring_buffer_ptr->data_available));   //increments data_available by 1
 
                     }
+                    free(data_transfer_in);
                     exit(EXIT_SUCCESS);
                     break;
                 }
@@ -195,15 +221,17 @@ int main(int argc, char* argv[]) {
 
                     uint64_t temp =0;
                     uint64_t* data_transfer = malloc(sizeof(*data_transfer));
-                    for (uint64_t j = 0; j < K; ++j) {
+                    for (uint64_t j = 0; j < K_debug; ++j) {
 
                         sem_wait(&(ring_buffer_ptr->data_available));
                         //decrements data_available by 1, ONLY if currently >0. otherwise waits
-
+#if MUTEX
                         pthread_mutex_lock(&(ring_buffer_ptr->mutex_buffer));
-                        ring_buffer_pop(ring_buffer_ptr, buffersize, data_transfer);
+#endif
+                        ring_buffer_pop(ring_buffer_ptr, buffersize, data_transfer, j, L);
+#if MUTEX
                         pthread_mutex_unlock(&(ring_buffer_ptr->mutex_buffer));
-
+#endif
                         temp +=  *data_transfer;
 
                         sem_post(&(ring_buffer_ptr->free_space_available));
@@ -223,7 +251,7 @@ int main(int argc, char* argv[]) {
     //this is parent:
     /*The parent process waits for the termination of both child processes.
      * It reads the result of their computation from the result element in the shared memory. (And prints it.)
-     * It then validates the result of the computation using the following function. -> validate_result(uint64_t result, const uint64_t K, const uint64_t N)
+     * It then validates the result of the computation using the following function. -> validate_result(uint64_t result, const uint64_t K_debug, const uint64_t N)
      * It then finishes up, and returns success.
      */
     for (int i = 0; i < 2; ++i) {
@@ -239,7 +267,7 @@ int main(int argc, char* argv[]) {
     }
 
     printf("Result: %lu\n", ring_buffer_ptr->result);
-    validate_result(ring_buffer_ptr->result, K, N);
+    validate_result(ring_buffer_ptr->result, K_debug, N);
 
 
     pthread_mutex_destroy(&(ring_buffer_ptr->mutex_buffer));
@@ -276,26 +304,34 @@ bool ring_buffer_is_empty(RingBuffer* buf){
     return buf->head == buf->tail;
 }
 
-bool ring_buffer_push(RingBuffer* buf, uint64_t buffersize, uint64_t data){
-    if(ring_buffer_is_full(buf, buffersize)) {return false;}
-    else{
-
-        memcpy(&(buf->buffer[buf->head]), &data, sizeof(uint64_t));
-        buf->head = (buf->head+1)%buffersize; //move buffer head forward, because we have written to the buffer.
+bool ring_buffer_push(RingBuffer *buf, uint64_t buffersize, uint64_t *data_transfer_in, uint64_t i, uint64_t L) {
+    //if(ring_buffer_is_full(buf, buffersize)) {return false;}
+    //else{
+        //buf->buffer[buf->head] = *data_transfer_in;     //todo: invalid write of size 8 (size 8 is size of uint64_t)
+        buf->buffer[i % L] = *data_transfer_in;           //Problem of invalid write size fixed like this...???
+        //memcpy(&(buf->buffer[buf->head]), data_transfer_in, sizeof(uint64_t));
+#if DEBUG
+        fprintf(stderr, "push: %lu\n", buf->buffer[buf->head]);
+#endif
+        buf->head = ((buf->head + 1) % buffersize); //move buffer head forward, because we have written to the buffer.
         // %buffersize because we have a "ring" buffer
         return true;
-    }
+    //}
 }
 
 
-bool ring_buffer_pop(RingBuffer* buf, uint64_t buffersize, uint64_t* data_transfer){
-    if(ring_buffer_is_empty(buf)) {return false;}
-    else{
-        *data_transfer = (buf->buffer[buf->tail]);
-        buf->tail = (buf->tail+1)%buffersize; //move buffer tail forward, because we have taken one item from the buffer.
+bool ring_buffer_pop(RingBuffer *buf, uint64_t buffersize, uint64_t *data_transfer, uint64_t i, uint64_t L) {
+    //if(ring_buffer_is_empty(buf)) {return false;}
+    //else{
+        //*data_transfer = (buf->buffer[buf->tail]);  //todo: invalid read of size 8
+        *data_transfer = (buf->buffer[i%L]);          //Problem of invalid write size fixed like this...???
+#if DEBUG
+        fprintf(stderr, "pop: %lu\n", buf->buffer[buf->tail]);
+#endif
+        buf->tail = ((buf->tail+1)%buffersize); //move buffer tail forward, because we have taken one item from the buffer.
         // %buffersize because we have a "ring" buffer
         return true;
-    }
+    //}
 }
 
 //supplied by PS_team
