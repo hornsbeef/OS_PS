@@ -1,3 +1,4 @@
+#define _GNU_SOURCE     //<<-essential for compiler...
 #include <sys/stat.h>
 #include <mqueue.h>
 #include <stdio.h>
@@ -10,6 +11,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <poll.h>
+
 
 
 #define NUM_TO_SORT 5
@@ -32,6 +34,15 @@ void bubbleSort(int arr[], int size);
 void check_argc(int argc);
 
 int main(int argc, char* argv[]){
+    //long max_prio = sysconf(_SC_MQ_PRIO_MAX);
+    //if (max_prio == -1) {
+    //    perror("sysconf");
+    //    return 1;
+    //}
+    //printf("Maximum priority value for message queues: %ld\n", max_prio);
+
+
+
     check_argc(argc);
 
     const char* mq_name = argv[1];

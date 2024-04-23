@@ -1,0 +1,14 @@
+What is the range of possible priorities defined by POSIX?
+
+    Are you limited to this range on your system?
+    What is more important a task with priority 2 or 99 (gets scheduled first)?
+
+Each message has an associated priority, and messages are always
+       delivered to the receiving process highest priority first.
+       Message priorities range from 0 (low) to
+       sysconf(_SC_MQ_PRIO_MAX) - 1 (high).  On Linux,
+       sysconf(_SC_MQ_PRIO_MAX) returns 32768, but POSIX.1 requires only
+       that an implementation support at least priorities in the range 0
+       to 31; some implementations provide only this range.
+
+Maximum priority value for message queues: 32768 on my system
