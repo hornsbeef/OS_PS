@@ -21,24 +21,28 @@
 #include <stdbool.h>
 
 void check_argc(int argc);
-unsigned long long int cast_to_ulli_with_check(char* string);
+
+unsigned long long int cast_to_ulli_with_check(char *string);
 
 void shm_clean_before_exit(const char *name, int fd);
+
 void fork_error_check(pid_t pid);
+
 void validate_result(uint64_t result, const uint64_t K, const uint64_t N);
 
 typedef struct RingBuffer {
     uint64_t result;
     uint64_t buffer[];
-}RingBuffer;
+} RingBuffer;
 
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
     check_argc(argc);
 
     uint64_t N = cast_to_ulli_with_check(argv[1]);     //N, an arbitrary integer
     uint64_t K = cast_to_ulli_with_check(argv[2]);     //K, number of reads/writes to the buffer
-    uint64_t L = cast_to_ulli_with_check(argv[3]);     //L, the length of the circular buffer (total size: L * sizeof(uint64_t))
+    uint64_t L = cast_to_ulli_with_check(
+            argv[3]);     //L, the length of the circular buffer (total size: L * sizeof(uint64_t))
     uint64_t buffersize = L * sizeof(uint64_t);     //RingBuffer: WHY THIS STILL WORK WITH 0 ???
 
 
@@ -54,11 +58,11 @@ int main(int argc, char* argv[]) {
 
     //shm_open()
     errno = 0;
-    const char* name = "/shared_memory";
+    const char *name = "/shared_memory";
     const int oflag = O_RDWR | O_CREAT | O_EXCL;
     const mode_t permission = S_IRUSR | S_IWUSR;
     int fd = shm_open(name, oflag, permission);
-    if(fd<0){
+    if (fd < 0) {
         perror("shm_open");
         shm_clean_before_exit(name, fd);
         exit(EXIT_FAILURE);
@@ -68,21 +72,21 @@ int main(int argc, char* argv[]) {
     const size_t shared_mem_size = sizeof(RingBuffer) + buffersize;
     errno = 0;
     int ftrunc_error = ftruncate(fd, shared_mem_size);
-    if(ftrunc_error < 0){
+    if (ftrunc_error < 0) {
         perror("ftruncate");
         shm_clean_before_exit(name, fd);
         exit(EXIT_FAILURE);
     }
 
     //mmap()    //why here on slides char* instead of void* ? -> because char is exactly size of 1 byte.
-                //here more useful for me: RingBuffer
+    //here more useful for me: RingBuffer
     /*
      * After the mmap() call has returned, the file descriptor, fd, can
        be closed immediately without invalidating the mapping. https://man7.org/linux/man-pages/man2/mmap.2.html
      */
-    errno=0;
-    RingBuffer* todo_ptr = mmap(NULL, shared_mem_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if(todo_ptr == MAP_FAILED){
+    errno = 0;
+    RingBuffer *todo_ptr = mmap(NULL, shared_mem_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (todo_ptr == MAP_FAILED) {
         perror("mmap");
         shm_clean_before_exit(name, fd);
         exit(EXIT_FAILURE);
@@ -96,27 +100,27 @@ int main(int argc, char* argv[]) {
         errno = 0;
         pid_t pid = fork();
         fork_error_check(pid);
-        if(pid == 0){
+        if (pid == 0) {
             switch (i) {
                 case 0: {   //child A:
                     /*The process loops K times, starting from 0.
                      * In each iteration (i), the number N * (i + 1) is written into position i % L of the circular buffer.
                      */
                     for (uint64_t j = 0; j < K; ++j) {
-                        uint64_t number = N * (j+1);
-                        todo_ptr->buffer[j%L] = number;
+                        uint64_t number = N * (j + 1);
+                        todo_ptr->buffer[j % L] = number;
                     }
                     exit(EXIT_SUCCESS);
                     break;
                 }
-                case 1:{    //child B.
+                case 1: {    //child B.
                     /*The process computes the sum of each element in the circular buffer.
                      * It prints the final result, and writes it into the result element in the shared memory.
                      */
 
-                    uint64_t temp =0;
+                    uint64_t temp = 0;
                     for (uint64_t j = 0; j < K; ++j) {
-                       temp +=  todo_ptr->buffer[j%L];
+                        temp += todo_ptr->buffer[j % L];
                     }
                     todo_ptr->result = temp;
                     exit(EXIT_SUCCESS);
@@ -135,7 +139,7 @@ int main(int argc, char* argv[]) {
     for (int i = 0; i < 2; ++i) {
         errno = 0;
         int wait_error = wait(NULL);
-        if(wait_error<0){
+        if (wait_error < 0) {
             perror("Wait: ");
             shm_clean_before_exit(name, fd);
             exit(EXIT_FAILURE);
@@ -149,6 +153,7 @@ int main(int argc, char* argv[]) {
     shm_clean_before_exit(name, fd);
     exit(EXIT_SUCCESS);
 }
+
 /*You will notice that the result is not always correct. This is by design and does not indicate an implementation mistake.
 
     Test your implementation with different values for N, K, and L.
@@ -200,13 +205,12 @@ void validate_result(uint64_t result, const uint64_t K, const uint64_t N) {
 
 
 void fork_error_check(pid_t pid) {
-    if(pid < 0){
+    if (pid < 0) {
         //todo: set errno = 0 before fork() call!
         perror("Fork failed");
         exit(EXIT_FAILURE);
     }
 }
-
 
 
 void shm_clean_before_exit(const char *name, int fd) {
@@ -221,7 +225,7 @@ void check_argc(int argc) {
     }
 }
 
-unsigned long long int cast_to_ulli_with_check(char* string) {
+unsigned long long int cast_to_ulli_with_check(char *string) {
     errno = 0;
     char *end = NULL;
     unsigned long long operand = strtoull(string, &end, 10);
