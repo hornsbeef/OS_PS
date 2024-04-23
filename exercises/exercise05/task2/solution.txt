@@ -1,0 +1,38 @@
+
+/*You will notice that the result is not always correct. This is by design and does not indicate an implementation mistake.
+
+    Test your implementation with different values for N, K, and L.
+    What is the checksum indicating?    -> if the computation was correct (by chance) or
+                                            if (due to non-synchronisation) the computation is incorrect.
+        Which values are correct vs. incorrect?
+        &&
+        How can the checksum be used to tell if a result is correct or not?
+            -> judging by the validate_result function, the result is correct, when the Checksum == 0,
+            as the validate-fct does the same computation the two child-processes do, but without race-conditions.
+
+ My results:
+N:1; K1; L1;
+ consistent:
+ Result: 1
+Checksum: 0
+ ////
+N:1 K:100_000; L1;  -> K is number of reads/writes to the buffer
+            -> more read/writes increases probability that "chance-synchronisation" is not working :)
+    -> inconsistent
+ ////
+N:100_000; K:1; L1;
+ consistent:
+ Result: 100000
+Checksum: 0
+ ////
+N:1; K:1; L 100_000
+ consistent:
+Result: 1
+Checksum: 0
+ ////
+N:100000 K:1 L:100000
+ consistent:
+ Result: 100000
+Checksum: 0
+
+*/
