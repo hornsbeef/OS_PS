@@ -10,3 +10,10 @@ add_executable(exercise05_task2
 add_executable(exercise05_task3
         task3/task3.c
 )
+
+add_executable(exercise05_task1_scheduler
+        task1/scheduler.c
+)
+add_executable(exercise05_task1_service
+        task1/service.c
+)
