@@ -137,7 +137,8 @@ int main(int argc, char *argv[]) {
     ring_buffer_init(ring_buffer_ptr);  //initialize head and tail to 0
     errno = 0;
     int sem_ret;
-    sem_ret = sem_init(&(ring_buffer_ptr->free_space_available), true, buffersize - 1);
+    //sem_ret = sem_init(&(ring_buffer_ptr->free_space_available), true, buffersize - 1);
+    sem_ret = sem_init(&(ring_buffer_ptr->free_space_available), true, L-1);
     if (sem_init_error(sem_ret)) {
         shm_clean_before_exit(name, fd);
         exit(EXIT_FAILURE);

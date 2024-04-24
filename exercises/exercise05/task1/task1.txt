@@ -10,5 +10,6 @@ Each message has an associated priority, and messages are always
        sysconf(_SC_MQ_PRIO_MAX) returns 32768, but POSIX.1 requires only
        that an implementation support at least priorities in the range 0
        to 31; some implementations provide only this range.
+       In Linux priority from 1-99 has to be supported.
 
 Maximum priority value for message queues: 32768 on my system

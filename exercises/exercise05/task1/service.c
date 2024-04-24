@@ -31,6 +31,19 @@ int main(int argc, char *argv[]) {
 
     numbers n;
 
+    //different approach with echo "...." |./service <mq> <priority>
+    //mit scanf
+    //Foto
+    //char message[BUFFERSIZE];
+    int messgae[BUFFERSIZE];
+    for(int i = 0; i< NUM_TO_SORT; i++){
+        if(scanf("%d", &messgae[i] != 1)){
+            perror("scanf");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+
     char buffer[BUFFERSIZE];
     for (int i = 0; i < NUM_TO_SORT; i++) {
         printf("Please enter number[%d]: ", (i + 1));

@@ -231,7 +231,7 @@ unsigned long long int cast_to_ulli_with_check(char *string) {
     unsigned long long operand = strtoull(string, &end, 10);
     //check conversion:
     if ((*end != '\0') || (string == end)) {       //conversion interrupted || no conversion happened
-        perror("StrToULL");
+        perror("StrToULL"); //strtoull -> check if sets errno!
         exit(EXIT_FAILURE);
     }
     if (errno != 0) {        //== ERANGE //as alternative to != 0
