@@ -12,7 +12,9 @@
 
 
 //global vars: :
-atomic_int counter = 0;     //TODO: understand atomic!!
+atomic_int counter = 0;
+//_Atomic int counter = 0;
+//int counter = 0;  //interestingly no difference was observable if I used atomic_int or int -> ?(bad) luck?
 pthread_t tid[THREAD_COUNT];
 
 
@@ -64,9 +66,11 @@ void *pthreadStartRoutine() {
         if(i % 2 == 0){
             //is even:
             atomic_fetch_add(&counter, 42);
+            //counter += 42;    //testing if race-condition is producible https://stackoverflow.com/questions/1790204/in-c-is-i-1-atomic
         }else{
             //is odd:
             atomic_fetch_sub(&counter, 41);
+            //counter -=41;
         }
 
 

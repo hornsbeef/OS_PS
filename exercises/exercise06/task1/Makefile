@@ -3,7 +3,7 @@ CFLAGS = -std=c11 -Wall -Wextra -D_POSIX_C_SOURCE=199309L -lrt -D_BSD_SOURCE -g 
 #maybe needs these flags for sigaction! CFLAGS = -std=c11 -Wall -Wextra -D_POSIX_C_SOURCE=199309L -lrt -D_POSIX_C_SOURCE -D_BSD_SOURCE -g
 CC = cc
 
-optimisation = O2
+optimisation = O3
 
 files_to_clean = *.o $(files_to_compile) valgrind_*.txt
 files_to_compile = task1_atomic task1_mutex

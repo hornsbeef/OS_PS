@@ -1,19 +1,120 @@
-hornsbeef@MintOShornsbeef:~/Nextcloud/Com_Science_Studies/2Sem/BS_PS/git/OS_PS/exercises/exercise06/task1$ make time
-/usr/bin/time -p ./task1_atomic
-Final value of counter = 12500000real 0.31
-user 7.41
-sys 0.01
-/usr/bin/time -p ./task1_mutex
-Final value of counter = 12500000real 1.38
-user 1.81
-sys 30.98
-
 
 Answer the following questions:
 
     How does the program behavior differ between the two variants? Measure the execution time of both using /usr/bin/time and report your findings. Make sure to use an optimized build (-O2 or -O3).
+    hornsbeef@MintOShornsbeef:~/Nextcloud/Com_Science_Studies/2Sem/BS_PS/git/OS_PS/exercises/exercise06/task1$ make time (with -O2)
+    /usr/bin/time -p ./task1_atomic
+    Final value of counter = 12500000real 0.31
+    user 7.41
+    sys 0.01
+    /usr/bin/time -p ./task1_mutex
+    Final value of counter = 12500000real 1.38
+    user 1.81
+    sys 30.98
+
+    The variant with atomic is a lot faster than mutex with -O2
+
+    hornsbeef@MintOShornsbeef:~/Nextcloud/Com_Science_Studies/2Sem/BS_PS/git/OS_PS/exercises/exercise06/task1$ make time
+    /usr/bin/time -p ./task1_atomic
+    Final value of counter = 12500000real 0.31
+    user 7.22
+    sys 0.02
+    /usr/bin/time -p ./task1_mutex
+    Final value of counter = 12500000real 1.13
+    user 1.56
+    sys 25.14
+
+    with -O3: atomic is still faster, but mutex got a little bit faster compared to -O2
+
+-----------------------------------------------------------------------------------------------------------------------
     What is the effect of specifying optimization flags when compiling?
+    The optimization flag tells the compiler to apply a set of optimizations
+    that aim to improve the execution speed of the compiled program, while balancing code size and compilation time.
+
+
+-----------------------------------------------------------------------------------------------------------------------
     How do -O2 and -O3 differ?
+
+    Degree of Optimization:
+
+        -O2 applies a set of optimizations that aim to improve execution speed, while balancing code size and compilation time.
+        -O3 enables more aggressive optimizations that can further improve performance, but may result in larger code size and longer compilation times.
+
+    Specific Optimizations:
+
+        The -O2 flag enables optimizations like strength reduction, inlining, constant folding, common subexpression elimination, dead code removal, and improved instruction selection.
+        The -O3 flag enables additional optimizations beyond those in -O2, such as loop unrolling, function inlining, and other techniques to exploit instruction-level parallelism.
+
+    Trade-offs:
+
+        The -O2 flag provides a good balance between performance, code size, and compilation time.
+        The -O3 flag prioritizes maximum performance, but may result in larger executable size and longer compilation times compared to -O2.
+
+-----------------------------------------------------------------------------------------------------------------------
+   https://stackoverflow.com/questions/1790204/in-c-is-i-1-atomic
     What is the difference between using += on a normal vs. an atomic integer type?
+    the atomicity and thread safety provided by the atomic integer type:
+
+        using += on a normal integer type in C, the operation is not guaranteed to be atomic.
+        This means that if multiple threads are concurrently accessing and modifying the same integer variable using +=,
+        there is a risk of data corruption and race conditions.
+
+        += on atomic types: This is a shorthand for the atomic equivalent of value = value + operand.
+        While atomic types guarantee that the read-modify-write operation itself is atomic,
+        it doesn't guarantee thread safety.
+        If multiple threads try to modify the same atomic variable simultaneously using +=, the result can be unpredictable and lead to data races.
+
+
+-----------------------------------------------------------------------------------------------------------------------
     How does using e.g. += on atomic types relate to using atomic functions such as atomic_fetch_add?
+
+    The difference between using += on atomic types and atomic_fetch_add lies in how they handle concurrent access from multiple threads.
+
+        += on atomic types:
+        This is a shorthand for the atomic equivalent of value = value + operand.
+        While atomic types guarantee that the read-modify-write operation itself is atomic,
+        it doesn't guarantee thread safety.
+        If multiple threads try to modify the same atomic variable simultaneously using +=,
+        the result can be unpredictable and lead to data races.
+
+        atomic_fetch_add(atomic_object, operand):
+        This function is specifically designed for atomic operations on concurrent access.
+        It performs an atomic addition of the operand to the atomic object and returns the old value.
+        This ensures that even if multiple threads call atomic_fetch_add on the same object concurrently,
+        the addition will be performed correctly without data corruption.
+
+
+-----------------------------------------------------------------------------------------------------------------------
+
     Which operations other than decrementing/incrementing can be done atomically?
+     Operations like the following:
+         atomic_storeatomic_store_explicit
+        (C11)
+        	stores a value in an atomic object
+        (function)
+        atomic_loadatomic_load_explicit
+        (C11)
+        	reads a value from an atomic object
+        (function)
+        atomic_exchangeatomic_exchange_explicit
+        (C11)
+        	swaps a value with the value of an atomic object
+        (function)
+
+         atomic_fetch_oratomic_fetch_or_explicit
+        (C11)
+        	atomic bitwise OR
+        (function)
+        atomic_fetch_xoratomic_fetch_xor_explicit
+        (C11)
+        	atomic bitwise exclusive OR
+        (function)
+        atomic_fetch_andatomic_fetch_and_explicit
+        (C11)
+        	atomic bitwise AND
+        (function)
+
+        https://en.cppreference.com/w/c/thread#Atomic_operations
+        I have searched, but have not found an exhaustive list of functions for atomics, nor did i find a good
+        man-page for atomics other than the one mentioned above.
+
