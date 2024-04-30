@@ -3,13 +3,14 @@
 #include <string.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <stdatomic.h>
 
 #define THREAD_COUNT 1000
 #define THREAD_ITERATIONS 25000
 
 
 //global vars: :
-int counter = 0;
+atomic_int counter = 0;     //TODO: understand atomic!!
 pthread_t tid[THREAD_COUNT];
 
 
@@ -58,11 +59,14 @@ void *pthreadStartRoutine() {
         //maybe not...??atomics -> problem how to fetch+compute+write atomically ?
         /*
          * Each thread should execute a loop of 25000 iterations. In each iteration i, the value of counter is
-
-    incremented by 42, if i is even, or
-    decremented by 41, if i is odd.
-
+        incremented by 42, if i is even, or
+        decremented by 41, if i is odd.
          */
+        if(i % 2 == 0){
+
+        }else{
+
+        }
 
 
     }
