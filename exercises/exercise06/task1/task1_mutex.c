@@ -1,4 +1,6 @@
-
+#define _POSIX_C_SOURCE 199309L
+#define _DEFAULT_SOURCE
+// #define _BSD_SOURCE
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -11,13 +13,16 @@
 //global vars: :
 int counter = 0;
 pthread_t tid[THREAD_COUNT];
-
+pthread_mutex_t mutex_counter; // = PTHREAD_MUTEX_INITIALIZER;  //NO error checks are performed.
 
 //functions:
 void pthread_error_funct(int pthread_returnValue);
 void *pthreadStartRoutine();
 
 int main(){
+
+    int mutex_init_retVal = pthread_mutex_init(&mutex_counter, NULL);   //here error check are possible
+    pthread_error_funct(mutex_init_retVal);
 
     //create 1000pthreads
     int error;
@@ -32,10 +37,10 @@ int main(){
         pthread_join(tid[i], NULL);
     }
 
+    //cleanup:
+    pthread_mutex_destroy(&mutex_counter);
 
-
-
-
+    printf("Final value of counter = %d", counter);
 
 }
 
@@ -61,16 +66,15 @@ void *pthreadStartRoutine() {
         incremented by 42, if i is even, or
         decremented by 41, if i is odd.
          */
+        pthread_mutex_lock(&mutex_counter);
         if(i % 2 == 0){
-
+            counter += 42;
         }else{
-
+            counter -= 41;
         }
-
-
+        pthread_mutex_unlock(&mutex_counter);
     }
 
-
     pthread_exit(NULL);
-    //return NULL;
+
 }

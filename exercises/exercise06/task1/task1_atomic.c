@@ -1,4 +1,6 @@
-
+#define _POSIX_C_SOURCE 199309L
+#define _DEFAULT_SOURCE
+// #define _BSD_SOURCE
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -32,10 +34,7 @@ int main(){
     for(int i = 0; i<THREAD_COUNT; i++){
         pthread_join(tid[i], NULL);
     }
-
-
-
-
+    printf("Final value of counter = %d", counter);
 
 
 }
@@ -63,9 +62,11 @@ void *pthreadStartRoutine() {
         decremented by 41, if i is odd.
          */
         if(i % 2 == 0){
-
+            //is even:
+            atomic_fetch_add(&counter, 42);
         }else{
-
+            //is odd:
+            atomic_fetch_sub(&counter, 41);
         }
 
 

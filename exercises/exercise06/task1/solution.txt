@@ -1,0 +1,19 @@
+hornsbeef@MintOShornsbeef:~/Nextcloud/Com_Science_Studies/2Sem/BS_PS/git/OS_PS/exercises/exercise06/task1$ make time
+/usr/bin/time -p ./task1_atomic
+Final value of counter = 12500000real 0.31
+user 7.41
+sys 0.01
+/usr/bin/time -p ./task1_mutex
+Final value of counter = 12500000real 1.38
+user 1.81
+sys 30.98
+
+
+Answer the following questions:
+
+    How does the program behavior differ between the two variants? Measure the execution time of both using /usr/bin/time and report your findings. Make sure to use an optimized build (-O2 or -O3).
+    What is the effect of specifying optimization flags when compiling?
+    How do -O2 and -O3 differ?
+    What is the difference between using += on a normal vs. an atomic integer type?
+    How does using e.g. += on atomic types relate to using atomic functions such as atomic_fetch_add?
+    Which operations other than decrementing/incrementing can be done atomically?
