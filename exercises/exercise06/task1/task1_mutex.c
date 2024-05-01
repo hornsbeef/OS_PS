@@ -13,7 +13,7 @@
 //global vars: :
 int counter = 0;
 pthread_t tid[THREAD_COUNT];
-pthread_mutex_t mutex_counter; // = PTHREAD_MUTEX_INITIALIZER;  //NO error checks are performed.
+pthread_mutex_t mutex_queue; // = PTHREAD_MUTEX_INITIALIZER;  //NO error checks are performed.
 
 //functions:
 void pthread_error_funct(int pthread_returnValue);
@@ -21,7 +21,7 @@ void *pthreadStartRoutine();
 
 int main(){
 
-    int mutex_init_retVal = pthread_mutex_init(&mutex_counter, NULL);   //here error check are possible
+    int mutex_init_retVal = pthread_mutex_init(&mutex_queue, NULL);   //here error check are possible
     pthread_error_funct(mutex_init_retVal);
 
     //create 1000pthreads
@@ -38,7 +38,7 @@ int main(){
     }
 
     //cleanup:
-    pthread_mutex_destroy(&mutex_counter);
+    pthread_mutex_destroy(&mutex_queue);
 
     printf("Final value of counter = %d", counter);
 
@@ -66,13 +66,13 @@ void *pthreadStartRoutine() {
         incremented by 42, if i is even, or
         decremented by 41, if i is odd.
          */
-        pthread_mutex_lock(&mutex_counter);
+        pthread_mutex_lock(&mutex_queue);
         if(i % 2 == 0){
             counter += 42;
         }else{
             counter -= 41;
         }
-        pthread_mutex_unlock(&mutex_counter);
+        pthread_mutex_unlock(&mutex_queue);
     }
 
     pthread_exit(NULL);
