@@ -1,0 +1,6 @@
+Instead of a mutex, could a semaphore be used in this situation?
+I believe that should be possible:
+in two variants:
+1: using semaphores as mutex, with binary semaphore
+2: by incrementing the semaphore every time data is made available by the producer, and decrementing it when the consumer takes it.
+    -> this would probably need additional synchronization, so that 2 consumers do not take from the same node of the queue

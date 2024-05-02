@@ -3,11 +3,13 @@
 //1 == trylock
 //2 == lock
 
-#define DEBUG 0
+#define DEBUG 1
 //DEBUG:
 //1 for additional usage info
 //2 for sum queue_init checking
 //10 for
+
+//todo: volatile trying to understand optimization
 
 #define _POSIX_C_SOURCE 199309L
 #define _DEFAULT_SOURCE
@@ -42,8 +44,8 @@ void *pthreadStartRoutine(void *arg);
 int main(int argc, char *argv[]) {
     check_argc(argc);
 
-    unsigned long long num_consumers = cast_to_ulli_with_check(argv[1]);    //c
-    unsigned long long num_elements = cast_to_ulli_with_check(argv[2]);     //n
+    volatile unsigned long long num_consumers = cast_to_ulli_with_check(argv[1]);    //c -> optimized out
+    volatile unsigned long long num_elements = cast_to_ulli_with_check(argv[2]);     //n -> optimized out
 #if DEBUG >1
     fprintf(stderr, "consumers: %llu\nelements: %llu\n", num_consumers,num_elements);
 #endif
@@ -57,22 +59,22 @@ int main(int argc, char *argv[]) {
 
 
 
-//mutex init:
+//mutex and mutex_attr init:
     pthread_mutexattr_t mutex_queue_attr;
 
-    int m_attr_ret = pthread_mutexattr_init(&mutex_queue_attr);
+    volatile int m_attr_ret = pthread_mutexattr_init(&mutex_queue_attr); //-> optimized out: m_attr_ret
     pthread_error_funct(m_attr_ret);
     m_attr_ret= pthread_mutexattr_setpshared(&mutex_queue_attr, PTHREAD_PROCESS_SHARED); //checking if this changes anything for optimization-crashing
     pthread_error_funct(m_attr_ret);
     m_attr_ret = pthread_mutexattr_settype(&mutex_queue_attr, PTHREAD_MUTEX_ERRORCHECK);
     pthread_error_funct(m_attr_ret);
 
-    int mutex_init_retVal = pthread_mutex_init(&mutex_queue, &mutex_queue_attr);   //here error check are possible
+    volatile int mutex_init_retVal = pthread_mutex_init(&mutex_queue, &mutex_queue_attr);   //here error check are possible
     pthread_error_funct(mutex_init_retVal);
 
 //pthread creation loop with relevant info
     pthread_args arg_struct_array[num_consumers];
-    int error;
+    volatile int error = 0;
     for (unsigned long long i = 0; i < num_consumers; i++) {
         arg_struct_array[i].queue = &queue;
         arg_struct_array[i].consumer_number = i;
@@ -87,7 +89,7 @@ int main(int argc, char *argv[]) {
     // followed by c entries of value INT_MAX.
 
 //adding elements
-    for (unsigned long long i = 0; i < num_elements; i++) {
+    for (unsigned long long i = 0; i < num_elements; i++) { // num_elements -> optimized out
 #if LOCK_TYPE == 1
         int mutex_return = pthread_mutex_trylock(&mutex_queue);
         if(mutex_return != 0){
@@ -153,11 +155,12 @@ int main(int argc, char *argv[]) {
  // Note that the final sum should be 0 if n is even and 1 if n is odd.
 
     int finalsum = 0;
-    for (unsigned long long i = 0; i < num_consumers; i++) {
+    for (unsigned long long i = 0; i < num_consumers; i++) {    //num_consumers -> optimized out
 #if DEBUG >1
         fprintf(stderr, "Main thread: @Joining \n");
 #endif
         error = pthread_join(arg_struct_array[i].tid, NULL);
+        pthread_error_funct(error);
         finalsum += arg_struct_array[i].sum;
 
     }
@@ -167,6 +170,8 @@ int main(int argc, char *argv[]) {
 #endif
     printf("Final sum: %d\n", finalsum);
 
+
+    pthread_mutex_destroy(&mutex_queue);
     exit(EXIT_SUCCESS);
 
 }
@@ -223,7 +228,8 @@ void *pthreadStartRoutine(void *arg) {
     my_pthread_args_ptr->sum = 0;
 
     infinity_loop:
-    while (!myqueue_is_empty(my_pthread_args_ptr->queue)) {
+    //while (!myqueue_is_empty(my_pthread_args_ptr->queue)) {
+    while (true) {
 #if LOCK_TYPE == 1
         int mutex_return = pthread_mutex_trylock(&mutex_queue);
         if(mutex_return != 0){  //mutex was already locked.
@@ -258,7 +264,7 @@ void *pthreadStartRoutine(void *arg) {
 
         if(temp == INT_MAX){
             //INT_MAX == Shutdown_signal receive:
-#if DEBUG >= 1
+#if DEBUG > 1
             fprintf(stderr, "Consumer: %lld received shudown signal\n", my_pthread_args_ptr->consumer_number);
 #endif
             printf("Consumer %llu sum: %d\n", my_pthread_args_ptr->consumer_number, my_pthread_args_ptr->sum);

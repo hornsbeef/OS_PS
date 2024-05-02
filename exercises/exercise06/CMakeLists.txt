@@ -3,6 +3,8 @@ project(exercise06 C)
 
 set(CMAKE_C_STANDARD 11)
 
+add_compile_options(-O0)
+
 add_executable(exercise06_task1_atomic
         task1/task1_atomic.c
 )

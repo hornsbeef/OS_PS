@@ -6,7 +6,7 @@ CC = cc
 optimisation = O3
 
 files_to_clean = *.o $(files_to_compile) valgrind_*.txt helgrind_*.txt drd_*.txt
-files_to_compile = task2
+files_to_compile = task3
 
 #might be problematic with multi-file make
 program_args = 1000 100000
@@ -47,12 +47,14 @@ time:
 
 .PHONY: helgrind
 helgrind:
-	valgrind --tool=helgrind --log-file="helgrind_"$(word 1, $(files_to_compile))".txt" --verbose --trace-children=yes ./$(word 1, $(files_to_compile)) $(program_args)
+	valgrind --tool=helgrind --log-file="helgrind_"$(word 1, $(files_to_compile))".txt" ./$(word 1, $(files_to_compile)) $(program_args)
+	#valgrind --tool=helgrind --log-file="helgrind_"$(word 1, $(files_to_compile))".txt" --verbose --trace-children=yes ./$(word 1, $(files_to_compile)) $(program_args)
 	#valgrind --tool=helgrind --log-file="helgrind_"$(word 2, $(files_to_compile))".txt" --verbose --trace-children=yes ./$(word 2, $(files_to_compile)) $(program_args)
 
 .PHONY: drd
 drd:
-	valgrind --tool=drd --log-file="drd_"$(word 1, $(files_to_compile))".txt" --verbose --trace-children=yes ./$(word 1, $(files_to_compile)) $(program_args)
+	valgrind --tool=drd --log-file="drd_"$(word 1, $(files_to_compile))".txt" ./$(word 1, $(files_to_compile)) $(program_args)
+	#valgrind --tool=drd --log-file="drd_"$(word 1, $(files_to_compile))".txt" --verbose --trace-children=yes ./$(word 1, $(files_to_compile)) $(program_args)
 	#valgrind --tool=drd --log-file="drd_"$(word 2, $(files_to_compile))".txt" --verbose --trace-children=yes ./$(word 2, $(files_to_compile)) $(program_args)
 #https://www.gnu.org/software/make/manual/make.html#Make-Control-Functions
 #https://www.gnu.org/software/make/manual/html_node/Multi_002dLine.html
