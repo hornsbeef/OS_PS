@@ -1,5 +1,17 @@
-#define DEBUG 1
+#define LOCK_TYPE 2
+//LOCK_TYPES: mutex:
+//1 == trylock
+//2 == lock
 
+#define DEBUG 0
+//DEBUG:
+//1 for additional usage info
+//2 for sum queue_init checking
+//10 for
+
+#define _POSIX_C_SOURCE 199309L
+#define _DEFAULT_SOURCE
+// #define _BSD_SOURCE
 #include <stdio.h>
 #include <errno.h>
 #include <limits.h>
@@ -9,13 +21,12 @@
 
 
 pthread_mutex_t mutex_queue;
-//bool empty;         //todo: remove unnecessary one.
-//int data_available;
-//both not necessary because we have the myqueue_is_empty() !!
+
 typedef struct pthread_args {
     myqueue* queue;
-    unsigned long long current_tid;
+    unsigned long long consumer_number;
     int sum;
+    pthread_t tid;
 }pthread_args;
 
 
@@ -31,66 +42,132 @@ void *pthreadStartRoutine(void *arg);
 int main(int argc, char *argv[]) {
     check_argc(argc);
 
-    unsigned long long num_consumers = cast_to_ulli_with_check(argv[1]);
-    unsigned long long num_elements = cast_to_ulli_with_check(argv[2]);
-#if DEBUG
-    fprintf(stderr, "consumers: %llu\n", num_consumers);
-    fprintf(stderr, "elements: %llu\n", num_elements);
+    unsigned long long num_consumers = cast_to_ulli_with_check(argv[1]);    //c
+    unsigned long long num_elements = cast_to_ulli_with_check(argv[2]);     //n
+#if DEBUG >1
+    fprintf(stderr, "consumers: %llu\nelements: %llu\n", num_consumers,num_elements);
 #endif
 
 
     myqueue queue;
     myqueue_init(&queue);
-#if DEBUG
+#if DEBUG >10
     fprintf(stderr, "queue is empty: %s ", (myqueue_is_empty(&queue) ? "true" : "false"));
 #endif
 
 
-    int mutex_init_retVal = pthread_mutex_init(&mutex_queue, NULL);   //here error check are possible
+
+//mutex init:
+    pthread_mutexattr_t mutex_queue_attr;
+
+    int m_attr_ret = pthread_mutexattr_init(&mutex_queue_attr);
+    pthread_error_funct(m_attr_ret);
+    m_attr_ret= pthread_mutexattr_setpshared(&mutex_queue_attr, PTHREAD_PROCESS_SHARED); //checking if this changes anything for optimization-crashing
+    pthread_error_funct(m_attr_ret);
+    m_attr_ret = pthread_mutexattr_settype(&mutex_queue_attr, PTHREAD_MUTEX_ERRORCHECK);
+    pthread_error_funct(m_attr_ret);
+
+    int mutex_init_retVal = pthread_mutex_init(&mutex_queue, &mutex_queue_attr);   //here error check are possible
     pthread_error_funct(mutex_init_retVal);
 
-    pthread_t tid[num_consumers];
+//pthread creation loop with relevant info
+    pthread_args arg_struct_array[num_consumers];
     int error;
     for (unsigned long long i = 0; i < num_consumers; i++) {
-        pthread_args my_pthread_args;       //todo: check if logic here cornetto
-        my_pthread_args.queue = &queue;
-        my_pthread_args.current_tid = i;
-        error = pthread_create(&tid[i], NULL, &pthreadStartRoutine, &my_pthread_args);
+        arg_struct_array[i].queue = &queue;
+        arg_struct_array[i].consumer_number = i;
+        error = pthread_create(&(arg_struct_array[i].tid), NULL, &pthreadStartRoutine, &arg_struct_array[i]);
         pthread_error_funct(error);
     }
 
 //this is main:
-    //todo: The main thread acts as the producer.
+    //The main thread acts as the producer.
     // After spawning the c consumers, it feeds n entries into the queue,
     // alternating between 1 and -1 (starting with 1),
     // followed by c entries of value INT_MAX.
 
+//adding elements
     for (unsigned long long i = 0; i < num_elements; i++) {
+#if LOCK_TYPE == 1
         int mutex_return = pthread_mutex_trylock(&mutex_queue);
-        if(mutex_return != 0){  //mutex was already locked.
-            i--;            //todo: check if logic cornetto -> if final sum is incorrect error probably here.
-            continue;       //todo: check if logic cornetto
+        if(mutex_return != 0){
+            //mutex was already locked.
+#if DEBUG >1
+            fprintf(stderr, "Main thread: @number trylock failed\n");
+
+#endif
+            if(mutex_return != EBUSY){
+                pthread_error_funct(mutex_return);
+            }
+
+            i--;
+            continue;
         }
         //mutex acquiring successful:
-        myqueue_push(&queue, (i % 2 == 0 ? 1 : -1));      //todo: check if logic cornetto
-        //data_available++;
+#if DEBUG >1
+        fprintf(stderr, "Main thread: @number trylock successful\n");
+#endif
+#elif LOCK_TYPE == 2
+        int mutex_return = pthread_mutex_lock(&mutex_queue);
+        pthread_error_funct(mutex_return);
+
+#endif
+        myqueue_push(&queue, (i % 2 == 0 ? 1 : -1));
         pthread_mutex_unlock(&mutex_queue);
     }
+
+//adding INT_MAX:s
     for (unsigned long long i = 0; i < num_consumers; i++) {
+#if LOCK_TYPE ==1
         int mutex_return = pthread_mutex_trylock(&mutex_queue);
-        if(mutex_return != 0){  //mutex was already locked.
-            i--;            //todo: check if logic cornetto -> if final sum is incorrect error probably here.
-            continue;       //todo: check if logic cornetto
+        if(mutex_return != 0){
+            //mutex was already locked.
+#if DEBUG >1
+            fprintf(stderr, "Main thread: @INTMAX trylock failed\n");
+#endif
+            if(mutex_return != EBUSY){
+                pthread_error_funct(mutex_return);
+            }
+            i--;
+            continue;
         }
+        //mutex acquiring successful:
+#if DEBUG >1
+        fprintf(stderr, "Main thread: @INTMAX trylock successful\n");
+#endif
+#elif LOCK_TYPE ==2
+        int mutex_return = pthread_mutex_lock(&mutex_queue);
+        pthread_error_funct(mutex_return);
+
+
+#endif
         myqueue_push(&queue, INT_MAX);
-        //data_available++;
         pthread_mutex_unlock(&mutex_queue);
     }
 
+//waiting for threads to finish and join
 
+ //The main thread then waits until all consumers have finished
+ // and computes the final sum from all the partial results,
+ // prints it to the console and exits.
+ // Note that the final sum should be 0 if n is even and 1 if n is odd.
 
+    int finalsum = 0;
+    for (unsigned long long i = 0; i < num_consumers; i++) {
+#if DEBUG >1
+        fprintf(stderr, "Main thread: @Joining \n");
+#endif
+        error = pthread_join(arg_struct_array[i].tid, NULL);
+        finalsum += arg_struct_array[i].sum;
 
+    }
 
+#if DEBUG
+    fprintf(stdout, "Note that the final sum should be %s.\n", num_elements % 2 == 0 ? " 0 " : " 1 ");
+#endif
+    printf("Final sum: %d\n", finalsum);
+
+    exit(EXIT_SUCCESS);
 
 }
 
@@ -134,30 +211,68 @@ void pthread_error_funct(int pthread_returnValue) {
 }
 
 void *pthreadStartRoutine(void *arg) {
-    //TODO: When a consumer thread successfully reads an element,
+    //When a consumer thread successfully reads an element,
     // it adds it to its local sum.
     // When the element is INT_MAX (limits.h), it prints out the sum, returns it to the main thread and exits.
 
-    pthread_args* my_pthread_args_ptr = (pthread_args*) arg;
+    pthread_args* my_pthread_args_ptr = (pthread_args*) arg;    //todo: check
+#if DEBUG > 2
+    fprintf(stderr, "in Thread: %lu\n",my_pthread_args_ptr->tid );
+#endif
 
     my_pthread_args_ptr->sum = 0;
 
-    //todo: implement waiting function! ? busy waiting?
     infinity_loop:
     while (!myqueue_is_empty(my_pthread_args_ptr->queue)) {
+#if LOCK_TYPE == 1
         int mutex_return = pthread_mutex_trylock(&mutex_queue);
         if(mutex_return != 0){  //mutex was already locked.
-            continue;       //todo: check if logic cornetto
+#if DEBUG >1
+            fprintf(stderr, "Consumer: %lld trylock failed\n", my_pthread_args_ptr->consumer_number);
+#endif
+            if(mutex_return != EBUSY){
+                pthread_error_funct(mutex_return);
+            }
+            continue;
         }
+        //got the lock:
+#if DEBUG >1
+        fprintf(stderr, "Consumer: %lld trylock successful\n", my_pthread_args_ptr->consumer_number);
+#endif
+#elif LOCK_TYPE == 2
+        int mutex_return = pthread_mutex_lock(&mutex_queue);
+        pthread_error_funct(mutex_return);
+
+
+#endif
+        if(myqueue_is_empty(my_pthread_args_ptr->queue)){
+#if DEBUG >1
+            fprintf(stderr, "Consumer: %lld QUEUE EMPTY\n", my_pthread_args_ptr->consumer_number);
+#endif
+            pthread_mutex_unlock(&mutex_queue);
+            continue;
+        }
+
         int temp = myqueue_pop(my_pthread_args_ptr->queue);
+        pthread_mutex_unlock(&mutex_queue);
+
         if(temp == INT_MAX){
-            printf("Consumer %llu sum: %d", my_pthread_args_ptr->current_tid, my_pthread_args_ptr->sum);
-            pthread_exit(NULL);
+            //INT_MAX == Shutdown_signal receive:
+#if DEBUG >= 1
+            fprintf(stderr, "Consumer: %lld received shudown signal\n", my_pthread_args_ptr->consumer_number);
+#endif
+            printf("Consumer %llu sum: %d\n", my_pthread_args_ptr->consumer_number, my_pthread_args_ptr->sum);
+            fflush(stdout);
+            pthread_exit(NULL); //this function always succeeds
         }
+
         my_pthread_args_ptr->sum += temp;
+#if DEBUG >1
+        fprintf(stderr, "Consumer %llu : current sum = %d\n", my_pthread_args_ptr->consumer_number, my_pthread_args_ptr->sum);
+#endif
 
     }
     goto infinity_loop;
     //should not get here??
-
 }
+
