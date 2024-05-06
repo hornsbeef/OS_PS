@@ -35,7 +35,7 @@ int main() {
     for (int i = 0; i < THREAD_COUNT; i++) {
         pthread_error_funct(pthread_join(tid[i], NULL));
     }
-    printf("Final value of counter = %d", counter);
+    printf("Final value of counter = %d\n", counter);
 
 
 }

@@ -39,7 +39,7 @@ int main() {
     //cleanup:
     pthread_mutex_destroy(&mutex_queue);
 
-    printf("Final value of counter = %d", counter);
+    printf("Final value of counter = %d\n", counter);
 
 }
 
