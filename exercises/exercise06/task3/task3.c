@@ -121,7 +121,7 @@ int main(int argc, char *argv[]) {
         pthread_error_funct(pthread_mutex_lock(&mutex_queue));
 #endif
         myqueue_push(&queue, (i % 2 == 0 ? 1 : -1));
-        pthread_cond_signal(&cond_data_pushed_to_queue); //TODO: understand manpage reasoning why before unlock??
+        pthread_cond_signal(&cond_data_pushed_to_queue);
         pthread_mutex_unlock(&mutex_queue);
     }
     /* https://linux.die.net/man/3/pthread_cond_signal
