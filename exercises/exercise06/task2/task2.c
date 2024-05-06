@@ -13,7 +13,6 @@
 //1 for assertion that final_sum is correct.
 //>1 for other Assertions
 
-//todo: volatile trying to understand optimization
 
 #define _POSIX_C_SOURCE 199309L
 #define _DEFAULT_SOURCE
