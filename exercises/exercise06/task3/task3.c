@@ -15,7 +15,7 @@
 //2 for sum queue_init checking
 //10 for
 
-#define ASSERT 1    //Todo: set to 0 for handin
+#define ASSERT 0    //done: set to 0 for handin
 //1 for assertion that final_sum is correct.
 //>1 for other Assertions
 
@@ -32,7 +32,7 @@
 
 
 pthread_mutex_t mutex_queue;
-pthread_cond_t cond;    //todo: rename!
+pthread_cond_t cond_data_pushed_to_queue;
 
 typedef struct pthread_args {
     myqueue* queue;
@@ -77,8 +77,8 @@ int main(int argc, char *argv[]) {
 
     pthread_error_funct(pthread_mutex_init(&mutex_queue, &mutex_queue_attr));
 
-//cond init:
-    pthread_error_funct(pthread_cond_init(&cond, NULL));
+//cond_data_pushed_to_queue init:
+    pthread_error_funct(pthread_cond_init(&cond_data_pushed_to_queue, NULL));
 
 
 
@@ -121,7 +121,7 @@ int main(int argc, char *argv[]) {
         pthread_error_funct(pthread_mutex_lock(&mutex_queue));
 #endif
         myqueue_push(&queue, (i % 2 == 0 ? 1 : -1));
-        pthread_cond_signal(&cond); //TODO: understand manpage reasoning why before unlock??
+        pthread_cond_signal(&cond_data_pushed_to_queue); //TODO: understand manpage reasoning why before unlock??
         pthread_mutex_unlock(&mutex_queue);
     }
     /* https://linux.die.net/man/3/pthread_cond_signal
@@ -173,7 +173,7 @@ int main(int argc, char *argv[]) {
 #endif
         myqueue_push(&queue, INT_MAX);
         pthread_mutex_unlock(&mutex_queue);
-        pthread_cond_signal(&cond);
+        pthread_cond_signal(&cond_data_pushed_to_queue);
 
     }
 
@@ -200,7 +200,7 @@ int main(int argc, char *argv[]) {
     assert(finalsum == (num_elements % 2 == 0 ? 0:1));
 #endif
 
-    pthread_cond_destroy(&cond);
+    pthread_cond_destroy(&cond_data_pushed_to_queue);
     pthread_mutex_destroy(&mutex_queue);
     exit(EXIT_SUCCESS);
 
@@ -284,9 +284,9 @@ void *pthreadStartRoutine(void *arg) {
 #endif
 
 
-//cond wait:
+//cond_data_pushed_to_queue wait:
         while (myqueue_is_empty(my_pthread_args_ptr->queue)) {             //catch for spurious wakeup!
-            pthread_error_funct(pthread_cond_wait(&cond, &mutex_queue));
+            pthread_error_funct(pthread_cond_wait(&cond_data_pushed_to_queue, &mutex_queue));
         }
 
         int temp = myqueue_pop(my_pthread_args_ptr->queue);
