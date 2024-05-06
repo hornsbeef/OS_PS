@@ -26,7 +26,6 @@ void *pthreadStartRoutine();
 int main() {
 
     //create 1000pthreads
-    int error;
 
     for (int i = 0; i < THREAD_COUNT; i++) {
         pthread_error_funct(pthread_create(&tid[i], NULL, &pthreadStartRoutine, NULL));
