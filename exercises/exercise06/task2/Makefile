@@ -5,11 +5,13 @@ CC = cc
 
 optimisation = O3
 
-files_to_clean = *.o $(files_to_compile) valgrind_*.txt helgrind_*.txt drd_*.txt
+files_to_clean = *.o $(files_to_compile) valgrind_*.txt helgrind_*.txt drd_*.txt run_*.txt
 files_to_compile = task2
 
 #might be problematic with multi-file make
-program_args = 1000 100000
+program_args = 5 200000
+
+run_times = 10
 
 
 
@@ -54,6 +56,16 @@ helgrind:
 drd:
 	valgrind --tool=drd --log-file="drd_"$(word 1, $(files_to_compile))".txt" --verbose --trace-children=yes ./$(word 1, $(files_to_compile)) $(program_args)
 	#valgrind --tool=drd --log-file="drd_"$(word 2, $(files_to_compile))".txt" --verbose --trace-children=yes ./$(word 2, $(files_to_compile)) $(program_args)
+
+
+.PHONY: run
+run:
+	@for i in $(shell seq 1 $(run_times)); do \
+		echo $$i >>"run_"$(run_times)"_"$(word 1, $(files_to_compile))".txt"; \
+		./$(word 1, $(files_to_compile)) $(program_args) >> "run_"$(run_times)"_"$(word 1, $(files_to_compile))".txt"; \
+		echo "------------------------------------------" >>"run_"$(run_times)"_"$(word 1, $(files_to_compile))".txt"; \
+  	done
+
 #https://www.gnu.org/software/make/manual/make.html#Make-Control-Functions
 #https://www.gnu.org/software/make/manual/html_node/Multi_002dLine.html
 
