@@ -14,7 +14,7 @@
 //global vars: :
 atomic_int counter = 0;
 //_Atomic int counter = 0;
-//int counter = 0;  //interestingly no difference was observable if I used atomic_int or int -> ?(bad) luck?
+//int counter = 0;  //interestingly  no difference was observable if I used atomic_int or int -> ?(bad) luck?
 pthread_t tid[THREAD_COUNT];
 
 

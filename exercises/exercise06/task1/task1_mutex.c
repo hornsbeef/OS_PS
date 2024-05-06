@@ -13,7 +13,7 @@
 //global vars: :
 int counter = 0;
 pthread_t tid[THREAD_COUNT];
-pthread_mutex_t mutex_queue; // = PTHREAD_MUTEX_INITIALIZER;  //NO error checks are performed.
+pthread_mutex_t mutex_queue; // = PTHREAD_MUTEX_INITIALIZER;  //NO  error checks are performed.
 
 //functions:
 void pthread_error_funct(int pthread_returnValue);
