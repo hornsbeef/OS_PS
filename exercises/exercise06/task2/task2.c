@@ -11,6 +11,7 @@
 
 #define ASSERT 0
 //1 for assertion that final_sum is correct.
+//>1 for other Assertions
 
 //todo: volatile trying to understand optimization
 
