@@ -35,12 +35,11 @@ pthread_mutex_t mutex_queue;
 pthread_cond_t cond_data_pushed_to_queue;
 
 typedef struct pthread_args {
-    myqueue* queue;
+    myqueue *queue;
     unsigned long long consumer_number;
     int sum;
     pthread_t tid;
-}pthread_args;
-
+} pthread_args;
 
 
 void check_argc(int argc);
@@ -56,14 +55,14 @@ int main(int argc, char *argv[]) {
 
     volatile unsigned long long num_consumers = cast_to_ulli_with_check(argv[1]);    //c -> optimized out
     volatile unsigned long long num_elements = cast_to_ulli_with_check(argv[2]);     //n -> optimized out
-#if DEBUG >1
+#if DEBUG > 1
     fprintf(stderr, "consumers: %llu\nelements: %llu\n", num_consumers,num_elements);
 #endif
 
 
     myqueue queue;
     myqueue_init(&queue);
-#if DEBUG >10
+#if DEBUG > 10
     fprintf(stderr, "queue is empty: %s ", (myqueue_is_empty(&queue) ? "true" : "false"));
 #endif
 
@@ -87,7 +86,8 @@ int main(int argc, char *argv[]) {
     for (unsigned long long i = 0; i < num_consumers; i++) {
         arg_struct_array[i].queue = &queue;
         arg_struct_array[i].consumer_number = i;
-        pthread_error_funct(pthread_create(&(arg_struct_array[i].tid), NULL, &pthreadStartRoutine, &arg_struct_array[i]));
+        pthread_error_funct(
+                pthread_create(&(arg_struct_array[i].tid), NULL, &pthreadStartRoutine, &arg_struct_array[i]));
     }
 
 //this is main:
@@ -151,7 +151,7 @@ int main(int argc, char *argv[]) {
 
 //adding INT_MAX:s
     for (unsigned long long i = 0; i < num_consumers; i++) {
-#if LOCK_TYPE ==1
+#if LOCK_TYPE == 1
         int mutex_return = pthread_mutex_trylock(&mutex_queue);
         if(mutex_return != 0){
             //mutex was already locked.
@@ -168,7 +168,7 @@ int main(int argc, char *argv[]) {
 #if DEBUG >1
         fprintf(stderr, "Main thread: @INTMAX trylock successful\n");
 #endif
-#elif LOCK_TYPE ==2
+#elif LOCK_TYPE == 2
         pthread_error_funct(pthread_mutex_lock(&mutex_queue));
 #endif
         myqueue_push(&queue, INT_MAX);
@@ -185,7 +185,7 @@ int main(int argc, char *argv[]) {
 
     int finalsum = 0;
     for (unsigned long long i = 0; i < num_consumers; i++) {    //num_consumers -> optimized out
-#if DEBUG >1
+#if DEBUG > 1
         fprintf(stderr, "Main thread: @Joining \n");
 #endif
         pthread_error_funct(pthread_join(arg_struct_array[i].tid, NULL));
@@ -205,10 +205,6 @@ int main(int argc, char *argv[]) {
     exit(EXIT_SUCCESS);
 
 }
-
-
-
-
 
 
 //helper functs
@@ -255,7 +251,7 @@ void *pthreadStartRoutine(void *arg) {
     // it adds it to its local sum.
     // When the element is INT_MAX (limits.h), it prints out the sum, returns it to the main thread and exits.
 
-    pthread_args* my_pthread_args_ptr = (pthread_args*) arg;
+    pthread_args *my_pthread_args_ptr = (pthread_args *) arg;
 #if DEBUG > 2
     fprintf(stderr, "in Thread: %lu\n",my_pthread_args_ptr->tid );
 #endif
@@ -292,7 +288,7 @@ void *pthreadStartRoutine(void *arg) {
         int temp = myqueue_pop(my_pthread_args_ptr->queue);
         pthread_mutex_unlock(&mutex_queue);
 
-        if(temp == INT_MAX){
+        if (temp == INT_MAX) {
             //INT_MAX == Shutdown_signal receive:
 #if DEBUG >= 1
             fprintf(stderr, "Consumer: %lld received shudown signal\n", my_pthread_args_ptr->consumer_number);
@@ -303,7 +299,7 @@ void *pthreadStartRoutine(void *arg) {
         }
 
         my_pthread_args_ptr->sum += temp;
-#if DEBUG >1
+#if DEBUG > 1
         fprintf(stderr, "Consumer %llu : current sum = %d\n", my_pthread_args_ptr->consumer_number, my_pthread_args_ptr->sum);
 #endif
 
