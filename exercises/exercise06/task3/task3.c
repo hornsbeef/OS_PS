@@ -255,7 +255,7 @@ void *pthreadStartRoutine(void *arg) {
     // it adds it to its local sum.
     // When the element is INT_MAX (limits.h), it prints out the sum, returns it to the main thread and exits.
 
-    pthread_args* my_pthread_args_ptr = (pthread_args*) arg;    //todo: check
+    pthread_args* my_pthread_args_ptr = (pthread_args*) arg;
 #if DEBUG > 2
     fprintf(stderr, "in Thread: %lu\n",my_pthread_args_ptr->tid );
 #endif
@@ -281,23 +281,13 @@ void *pthreadStartRoutine(void *arg) {
 #endif
 #elif LOCK_TYPE == 2
         pthread_error_funct(pthread_mutex_lock(&mutex_queue));
-
-
-
 #endif
-//        if(myqueue_is_empty(my_pthread_args_ptr->queue)){
-//#if DEBUG >1
-//            fprintf(stderr, "Consumer: %lld QUEUE EMPTY\n", my_pthread_args_ptr->consumer_number);
-//#endif
-//            pthread_mutex_unlock(&mutex_queue);
-//            continue;
-//        }
+
 
 //cond wait:
         while (myqueue_is_empty(my_pthread_args_ptr->queue)) {             //catch for spurious wakeup!
             pthread_error_funct(pthread_cond_wait(&cond, &mutex_queue));
         }
-
 
         int temp = myqueue_pop(my_pthread_args_ptr->queue);
         pthread_mutex_unlock(&mutex_queue);
@@ -320,5 +310,8 @@ void *pthreadStartRoutine(void *arg) {
     }
     goto infinity_loop;
     //should not get here??
+#if ASSERT == 2
+    assert(false)
+#endif
 }
 

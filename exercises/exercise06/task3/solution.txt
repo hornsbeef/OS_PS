@@ -25,7 +25,10 @@
 
 Benchmark the following commands and make sure to use an optimized build (-O2 or -O3). Report your findings.
 --> all tests run with -O3
---> a reported Percetn of CPU this job got: with over 2000% seems suspicious...
+--> a reported Percent of CPU this job got: with over 2000% seemed suspicious:
+The "Percent of CPU this job got"-value is obtained by summing up the CPU usage of each thread,
+which can exceed 100% when multiple threads are running simultaneously and utilizing CPU resources efficiently.
+
 
 /usr/bin/time -v ./task2 250 100000
 	Command being timed: "./task2 250 100000"
