@@ -15,7 +15,10 @@
 //2 for sum queue_init checking
 //10 for
 
-//todo: volatile trying to understand optimization
+#define ASSERT 1    //Todo: set to 0 for handin
+//1 for assertion that final_sum is correct.
+//>1 for other Assertions
+
 
 #define _POSIX_C_SOURCE 199309L
 #define _DEFAULT_SOURCE
@@ -68,30 +71,23 @@ int main(int argc, char *argv[]) {
 
 //mutex and mutex_attr init:
     pthread_mutexattr_t mutex_queue_attr;
+    pthread_error_funct(pthread_mutexattr_init(&mutex_queue_attr));
+    pthread_error_funct(pthread_mutexattr_setpshared(&mutex_queue_attr, PTHREAD_PROCESS_SHARED));
+    pthread_error_funct(pthread_mutexattr_settype(&mutex_queue_attr, PTHREAD_MUTEX_ERRORCHECK));
 
-    volatile int m_attr_ret = pthread_mutexattr_init(&mutex_queue_attr); //-> optimized out: m_attr_ret
-    pthread_error_funct(m_attr_ret);
-    m_attr_ret= pthread_mutexattr_setpshared(&mutex_queue_attr, PTHREAD_PROCESS_SHARED); //checking if this changes anything for optimization-crashing
-    pthread_error_funct(m_attr_ret);
-    m_attr_ret = pthread_mutexattr_settype(&mutex_queue_attr, PTHREAD_MUTEX_ERRORCHECK);
-    pthread_error_funct(m_attr_ret);
-
-    volatile int mutex_init_retVal = pthread_mutex_init(&mutex_queue, &mutex_queue_attr);   //here error check are possible
-    pthread_error_funct(mutex_init_retVal);
+    pthread_error_funct(pthread_mutex_init(&mutex_queue, &mutex_queue_attr));
 
 //cond init:
     pthread_error_funct(pthread_cond_init(&cond, NULL));
 
 
 
-//pthread creation loop with relevant info
+//pthread_create loop with relevant info
     pthread_args arg_struct_array[num_consumers];
-    volatile int error = 0;
     for (unsigned long long i = 0; i < num_consumers; i++) {
         arg_struct_array[i].queue = &queue;
         arg_struct_array[i].consumer_number = i;
-        error = pthread_create(&(arg_struct_array[i].tid), NULL, &pthreadStartRoutine, &arg_struct_array[i]);
-        pthread_error_funct(error);
+        pthread_error_funct(pthread_create(&(arg_struct_array[i].tid), NULL, &pthreadStartRoutine, &arg_struct_array[i]));
     }
 
 //this is main:
@@ -123,7 +119,6 @@ int main(int argc, char *argv[]) {
 #endif
 #elif LOCK_TYPE == 2
         pthread_error_funct(pthread_mutex_lock(&mutex_queue));
-
 #endif
         myqueue_push(&queue, (i % 2 == 0 ? 1 : -1));
         pthread_cond_signal(&cond); //TODO: understand manpage reasoning why before unlock??
@@ -137,6 +132,21 @@ int main(int argc, char *argv[]) {
      * however, if predictable scheduling behavior is required,
      * then that mutex shall be locked by the thread calling pthread_cond_broadcast()
      * or pthread_cond_signal()
+     *
+     *
+     * Based on the search results, the key reasons why pthread_cond_signal() should be called before unlocking the mutex are:
+
+    Calling pthread_cond_signal() without first locking the mutex can lead to "lost wakeup" bugs.
+     This occurs when a thread calls pthread_cond_signal() but another thread is between testing
+     the condition and calling pthread_cond_wait(), so the signal has no effect and is lost.
+
+    The pthread_cond_wait() function is designed to be atomic -
+     it atomically unlocks the mutex and suspends the thread, so that if another thread signals the condition variable,
+     the waiting thread will be woken up.
+     This atomicity is lost if the mutex is unlocked before the signal is sent.
+
+    The pthread_cond_signal() function should be called while holding the mutex that is associated with the condition variable.
+     This ensures that the condition being tested is modified only while holding the associated mutex, preventing race conditions.
      */
 
 //adding INT_MAX:s
@@ -160,8 +170,6 @@ int main(int argc, char *argv[]) {
 #endif
 #elif LOCK_TYPE ==2
         pthread_error_funct(pthread_mutex_lock(&mutex_queue));
-
-
 #endif
         myqueue_push(&queue, INT_MAX);
         pthread_mutex_unlock(&mutex_queue);
@@ -170,7 +178,6 @@ int main(int argc, char *argv[]) {
     }
 
 //waiting for threads to finish and join
-
     //The main thread then waits until all consumers have finished
     // and computes the final sum from all the partial results,
     // prints it to the console and exits.
@@ -183,13 +190,16 @@ int main(int argc, char *argv[]) {
 #endif
         pthread_error_funct(pthread_join(arg_struct_array[i].tid, NULL));
         finalsum += arg_struct_array[i].sum;
-
     }
 
 #if DEBUG
     fprintf(stdout, "Note that the final sum should be %s.\n", num_elements % 2 == 0 ? " 0 " : " 1 ");
 #endif
     printf("Final sum: %d\n", finalsum);
+#if ASSERT >= 1
+    assert(finalsum == (num_elements % 2 == 0 ? 0:1));
+#endif
+
     pthread_cond_destroy(&cond);
     pthread_mutex_destroy(&mutex_queue);
     exit(EXIT_SUCCESS);
