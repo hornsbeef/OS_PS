@@ -17,24 +17,23 @@ pthread_mutex_t mutex_queue; // = PTHREAD_MUTEX_INITIALIZER;  //NO error checks 
 
 //functions:
 void pthread_error_funct(int pthread_returnValue);
+
 void *pthreadStartRoutine();
 
-int main(){
+int main() {
 
-    int mutex_init_retVal = pthread_mutex_init(&mutex_queue, NULL);   //here error check are possible
-    pthread_error_funct(mutex_init_retVal);
+    pthread_error_funct(pthread_mutex_init(&mutex_queue, NULL));   //here error check are possible
+
 
     //create 1000pthreads
     int error;
-
-    for(int i = 0; i<THREAD_COUNT; i++){
-        error = pthread_create(&tid[i], NULL, &pthreadStartRoutine, NULL);
-        pthread_error_funct(error);
+    for (int i = 0; i < THREAD_COUNT; i++) {
+        pthread_error_funct(pthread_create(&tid[i], NULL, &pthreadStartRoutine, NULL));
     }
 
     //wait for 1000 pthreads
-    for(int i = 0; i<THREAD_COUNT; i++){
-        pthread_join(tid[i], NULL);
+    for (int i = 0; i < THREAD_COUNT; i++) {
+        pthread_error_funct(pthread_join(tid[i], NULL));
     }
 
     //cleanup:
@@ -46,8 +45,8 @@ int main(){
 
 //Helper functs
 void pthread_error_funct(int pthread_returnValue) {
-    if(pthread_returnValue != 0){
-        char* error_msg = strerror(pthread_returnValue);
+    if (pthread_returnValue != 0) {
+        char *error_msg = strerror(pthread_returnValue);
         fprintf(stderr, "Error code: %d\n"
                         "Error message: %s\n"
                         "Note that the pthreads functions do not set errno.\n",
@@ -57,19 +56,17 @@ void pthread_error_funct(int pthread_returnValue) {
 }
 
 void *pthreadStartRoutine() {
+/*
+* Each thread should execute a loop of 25000 iterations. In each iteration i, the value of counter is
+incremented by 42, if i is even, or
+decremented by 41, if i is odd.
+*/
+    for (int i = 0; i < THREAD_ITERATIONS; i++) {
 
-    for(int i = 0; i<THREAD_ITERATIONS; i++){
-
-        //maybe not...??atomics -> problem how to fetch+compute+write atomically ?
-        /*
-         * Each thread should execute a loop of 25000 iterations. In each iteration i, the value of counter is
-        incremented by 42, if i is even, or
-        decremented by 41, if i is odd.
-         */
         pthread_mutex_lock(&mutex_queue);
-        if(i % 2 == 0){
+        if (i % 2 == 0) {
             counter += 42;
-        }else{
+        } else {
             counter -= 41;
         }
         pthread_mutex_unlock(&mutex_queue);

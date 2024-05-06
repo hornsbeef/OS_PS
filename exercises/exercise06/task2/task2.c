@@ -1,4 +1,4 @@
-#define LOCK_TYPE 2
+#define LOCK_TYPE 1
 //LOCK_TYPES: mutex:
 //1 == trylock
 //2 == lock

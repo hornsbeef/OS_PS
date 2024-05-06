@@ -2,7 +2,8 @@
 Answer the following questions:
 
     How does the program behavior differ between the two variants? Measure the execution time of both using /usr/bin/time and report your findings. Make sure to use an optimized build (-O2 or -O3).
-    hornsbeef@MintOShornsbeef:~/Nextcloud/Com_Science_Studies/2Sem/BS_PS/git/OS_PS/exercises/exercise06/task1$ make time (with -O2)
+    (with -O2)
+    hornsbeef@MintOShornsbeef:~/Nextcloud/Com_Science_Studies/2Sem/BS_PS/git/OS_PS/exercises/exercise06/task1$ make time
     /usr/bin/time -p ./task1_atomic
     Final value of counter = 12500000real 0.31
     user 7.41
@@ -44,6 +45,7 @@ Answer the following questions:
 
         The -O2 flag enables optimizations like strength reduction, inlining, constant folding, common subexpression elimination, dead code removal, and improved instruction selection.
         The -O3 flag enables additional optimizations beyond those in -O2, such as loop unrolling, function inlining, and other techniques to exploit instruction-level parallelism.
+    (further explanation @ end of file)
 
     Trade-offs:
 
@@ -59,7 +61,7 @@ Answer the following questions:
         This means that if multiple threads are concurrently accessing and modifying the same integer variable using +=,
         there is a risk of data corruption and race conditions.
 
-        += on atomic types: This is a shorthand for the atomic equivalent of value = value + operand.
+        += on atomic types: This is a shorthand for the atomic equivalent of [ value = value + operand ] .
         While atomic types guarantee that the read-modify-write operation itself is atomic,
         it doesn't guarantee thread safety.
         If multiple threads try to modify the same atomic variable simultaneously using +=, the result can be unpredictable and lead to data races.
@@ -71,7 +73,7 @@ Answer the following questions:
     The difference between using += on atomic types and atomic_fetch_add lies in how they handle concurrent access from multiple threads.
 
         += on atomic types:
-        This is a shorthand for the atomic equivalent of value = value + operand.
+        This is a shorthand for the atomic equivalent of [ value = value + operand ].
         While atomic types guarantee that the read-modify-write operation itself is atomic,
         it doesn't guarantee thread safety.
         If multiple threads try to modify the same atomic variable simultaneously using +=,
@@ -118,3 +120,43 @@ Answer the following questions:
         I have searched, but have not found an exhaustive list of functions for atomics, nor did i find a good
         man-page for atomics other than the one mentioned above.
 
+-----------------------------------------------------------------------------------------------------------------------
+
+Strength Reduction:
+Strength reduction is a compiler optimization technique that replaces expensive operations with cheaper ones. For example,
+replacing multiplication with shifts or replacing divisions with multiplications when possible.
+This optimization aims to reduce the computational complexity of the code, leading to faster execution.
+
+Inlining:
+Inlining is a technique where the compiler replaces a function call with the actual code of the function.
+This can eliminate the overhead of function call mechanisms, such as parameter passing and stack manipulation.
+Inlining can improve performance by reducing function call overhead and potentially enabling further optimizations.
+
+Constant Folding:
+Constant folding is the process of evaluating constant expressions at compile time rather than at runtime.
+This optimization simplifies expressions involving constants, such as arithmetic operations,
+and replaces them with their computed values. By eliminating redundant computations, constant folding can improve the efficiency of the generated code.
+
+Common Subexpression Elimination:
+Common subexpression elimination (CSE) is an optimization that identifies and eliminates redundant computations in the code.
+When the same subexpression is computed multiple times, CSE replaces subsequent occurrences with the result of the first computation.
+This optimization reduces redundant work and can lead to faster execution by avoiding unnecessary calculations.
+
+Dead Code Removal:
+Dead code removal is a process where the compiler identifies and eliminates code
+that does not contribute to the final output of the program. This includes unreachable code, such as statements after a
+return statement or code within conditional branches that are never executed.
+Removing dead code reduces the size of the compiled program and can improve runtime performance by streamlining the execution flow.
+
+Improved Instruction Selection:
+Improved instruction selection involves choosing more efficient machine instructions to
+implement high-level language constructs. By selecting optimal instructions tailored to the target architecture,
+the compiler can generate code that executes more efficiently on the underlying hardware.
+This optimization aims to leverage the specific features of the target processor to enhance performance and reduce resource usage.
+
+Loop unrolling:
+This optimization involves replicating the body of a loop a certain number of times,
+known as the loop unrolling factor, and adjusting the loop control accordingly.
+By unrolling loops, the number of loop control instructions, such as incrementing and testing the loop counter,
+is reduced, leading to improved performance. Additionally, unrolling loops can help in reducing jumps back to a loop's entry,
+potentially enhancing pipeline behavior and enabling other compiler optimizations.

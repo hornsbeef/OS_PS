@@ -20,21 +20,21 @@ pthread_t tid[THREAD_COUNT];
 
 //functions:
 void pthread_error_funct(int pthread_returnValue);
+
 void *pthreadStartRoutine();
 
-int main(){
+int main() {
 
     //create 1000pthreads
     int error;
 
-    for(int i = 0; i<THREAD_COUNT; i++){
-        error = pthread_create(&tid[i], NULL, &pthreadStartRoutine, NULL);
-        pthread_error_funct(error);
+    for (int i = 0; i < THREAD_COUNT; i++) {
+        pthread_error_funct(pthread_create(&tid[i], NULL, &pthreadStartRoutine, NULL));
     }
 
     //wait for 1000 pthreads
-    for(int i = 0; i<THREAD_COUNT; i++){
-        pthread_join(tid[i], NULL);
+    for (int i = 0; i < THREAD_COUNT; i++) {
+        pthread_error_funct(pthread_join(tid[i], NULL));
     }
     printf("Final value of counter = %d", counter);
 
@@ -43,8 +43,8 @@ int main(){
 
 //Helper functs
 void pthread_error_funct(int pthread_returnValue) {
-    if(pthread_returnValue != 0){
-        char* error_msg = strerror(pthread_returnValue);
+    if (pthread_returnValue != 0) {
+        char *error_msg = strerror(pthread_returnValue);
         fprintf(stderr, "Error code: %d\n"
                         "Error message: %s\n"
                         "Note that the pthreads functions do not set errno.\n",
@@ -54,20 +54,18 @@ void pthread_error_funct(int pthread_returnValue) {
 }
 
 void *pthreadStartRoutine() {
+/*
+* Each thread should execute a loop of 25000 iterations. In each iteration i, the value of counter is
+incremented by 42, if i is even, or
+decremented by 41, if i is odd.
+*/
+    for (int i = 0; i < THREAD_ITERATIONS; i++) {
 
-    for(int i = 0; i<THREAD_ITERATIONS; i++){
-
-        //maybe not...??atomics -> problem how to fetch+compute+write atomically ?
-        /*
-         * Each thread should execute a loop of 25000 iterations. In each iteration i, the value of counter is
-        incremented by 42, if i is even, or
-        decremented by 41, if i is odd.
-         */
-        if(i % 2 == 0){
+        if (i % 2 == 0) {
             //is even:
             atomic_fetch_add(&counter, 42);
             //counter += 42;    //testing if race-condition is producible https://stackoverflow.com/questions/1790204/in-c-is-i-1-atomic
-        }else{
+        } else {
             //is odd:
             atomic_fetch_sub(&counter, 41);
             //counter -=41;
