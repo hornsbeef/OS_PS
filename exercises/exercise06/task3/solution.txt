@@ -32,10 +32,10 @@ which can exceed 100% when multiple threads are running simultaneously and utili
 
 /usr/bin/time -v ./task2 250 100000
 	Command being timed: "./task2 250 100000"
-	User time (seconds): 5.58
-	System time (seconds): 91.97
+	User time (seconds): 5.58       //so viel zeit wird von allen Threads gemeinsam verbraucht (hald teils zugleich)
+	System time (seconds): 91.97    //so viel zeit wird von allen Threads gemeinsam verbraucht (hald teils zugleich)
 	Percent of CPU this job got: 2385%
-	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:04.08
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:04.08    //Zeit die wirklich vergeht
 	Average shared text size (kbytes): 0
 	Average unshared data size (kbytes): 0
 	Average stack size (kbytes): 0
