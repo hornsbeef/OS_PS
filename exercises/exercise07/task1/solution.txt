@@ -48,7 +48,7 @@ exit_group(1)                           = ?
 
 2)
 after creating hint.txt: a few lines have changed, and the file hint.txt now contains text:
-
+"The key is 3096592037"  (as well as some unreadable characters(after using github to get those files to my local machine, because reading on a cli is pain))
 strace -o output.txt ./secret
 ->
 execve("./secret", ["./secret"], 0x7ffd1a54b820 /* 53 vars */) = 0
