@@ -1,0 +1,117 @@
+    Explain the program.
+This C program simulates a dining philosophers problem using threads.
+ It creates a specified number of philosophers, each represented by a thread, and has them take turns eating.
+ The philosophers use chopsticks to eat, and each chopstick is shared by two philosophers,
+ meaning there are the same number of philosophers as there are chopsticks.
+ The program uses mutex locks to ensure that a philosopher can only eat when they have both chopsticks.
+
+
+    How can a deadlock occur?
+generally: these 4 conditions must be met to get a deadlock:
+        Mutual exclusion: Once a resource has been acquired up to its allowable capacity, no other thread is granted access.
+        No preemption: Once a thread has acquired a resource, the resource cannot be forcibly taken away. For instance, only the owner of a mutex can unlock it.
+        Hold and wait: It is possible that a thread can acquire one resource and retain ownership of that resource while waiting on another.
+        Circular wait: One thread needs a resource held by another, while this second thread needs a different resource held by the first.
+
+In this program in the pthread worker function:
+//pthread worker function.
+void* dine(void* id) {
+    int n = (int)(intptr_t)id;  //"slot" each thread got assigned to in the philosopher-array
+
+    for (int i = 0; i < EAT_ITERATIONS; ++i) {
+        pthread_mutex_lock(&chopstick[RIGHT_CHOPSTICK(n)]); //n
+        //here is where a deadlock might occur.
+        //Say we have threads A-E and therefore mutex 1-5:
+        //each thread tries to first lock the mutex with a number corresponding to their "position"/"name"
+        //then each thread tries to lock the mutex with the next higher number.
+        // e.g: A tries to lock mutex 1, and if successful tries to lock 2.
+        //      B tries to lock mutex 2, and if successful tries to lock 3.
+        //      ...
+        //here the potential for a deadlock becomes visible:
+        //if B managed to lock mutex 2 before A could do so -> then A waits until it can lock mutex 2, but keeps on holding mutex 1.
+        //now when we go "through the whole circle" (A->B->C->D->E->A...)
+        //and assume that:
+        // C got mutex 3, (needs 4)
+        // D got mutex 4, (needs 5)
+        // E got mutex 5. (needs 1 - held by A)
+        //-> no thread can finish its execution and release its lock, therefore creating a deadlock.
+        pthread_mutex_lock(&chopstick[LEFT_CHOPSTICK(n)]);  //n+1 (is "circle" -> next in line)
+        usleep(EAT_DURATION);
+        pthread_mutex_unlock(&chopstick[LEFT_CHOPSTICK(n)]);    //n+1 (is "circle" -> next in line)
+        pthread_mutex_unlock(&chopstick[RIGHT_CHOPSTICK(n)]);   //n
+    }
+    printf("Philosopher %d is done eating!\n", n);
+
+    return NULL;
+}
+    Does it always happen?
+No, it does not always occur - when testing it actually never occurred.
+
+
+    Change the program to prevent any potential deadlocks from occurring. Submit your solution.
+    Explain how your changes prevent deadlocks.:
+void* dine(void* id) {
+    int n = (int)(intptr_t)id;  //"slot" each thread got assigned to in the philosopher-array
+
+    int lower = RIGHT_CHOPSTICK(n);
+    int higher = LEFT_CHOPSTICK(n);
+    if(lower > higher){
+        swap(&higher, &lower);
+    }
+    //solution by introducing
+    //the above 5 lines make sure, that each thread first locks the "lower numbered mutex"
+    //This means only for the last thread the oreder changes from the original approach:
+    //the last thread will try to lock 0 before locking "its own" mutex.
+    // therefore the circular waiting component of deadlocks is removed -> no deadlock can occur.
+
+    for (int i = 0; i < EAT_ITERATIONS; ++i) {
+        pthread_mutex_lock(&chopstick[lower]);
+        pthread_mutex_lock(&chopstick[higher]);
+        usleep(EAT_DURATION);
+        pthread_mutex_unlock(&chopstick[higher]);
+        pthread_mutex_unlock(&chopstick[lower]);
+    }
+    printf("Philosopher %d is done eating!\n", n);
+
+    return NULL;
+}
+
+
+
+
+    How can you test your solution to ensure that it is deadlock-free?
+there are multiple approaches, with respective pros and cons:
+-Using formal verification to prove absence of deadlocks (only approach that can prove correctness)
+-Exhaustive Testing
+-Manual Code inspection
+-Automated tools like Valgrind, Helgrind ...
+
+
+https://provenrun.com/formal-methods-the-optimal-approach-for-developing-secure-operating-systems-in-embedded-devices/
+
+
+
+    What are the advantages and disadvantages of your solution?
+Advantages:
+-Deadlock-free
+-Simplicity of implementation.
+
+Disadvantages:
+-might not be fair: with N threads, the thread N-1 will probably get both mutexes more often, than
+    thread N, because threads N and 1 compete for mutex 1 (lowest number mutex)
+-might be less efficient than other approaches:
+    when every thread locks their "lower" mutex, this solution prevents a deadlock,
+    BUT: now every thread has to wait, until its "higher neighbor" releases their lock.
+    This potentially wastes a lot of resources.
+    A solution could be to release a lock on the first mutex, when the locking of the second mutex fails,
+    -> therefore giving other threads the opportunity to finish their locking & work, increasing productivity.
+
+    Can you think of a computer science based real-world scenario where a similar problem could occur?
+Where a similar problem to the dining philosophers problem could occur is in concurrent access to shared resources in a multi-threaded application.
+For example, consider a database management system where multiple threads (representing different users or processes)
+are trying to access and modify shared data concurrently.
+Each thread may need to acquire locks on specific resources (similar to the chopsticks in the dining philosophers problem) to perform its operations.
+If each thread is waiting for a resource held by another, it can lead to a situation where threads are blocked indefinitely, unable to make progress.
+
+
+https://w3.cs.jmu.edu/kirkpams/OpenCSF/Books/csf/html/DiningPhil.html
