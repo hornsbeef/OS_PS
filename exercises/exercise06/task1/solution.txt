@@ -66,6 +66,7 @@ Answer the following questions:
         it doesn't guarantee thread safety.
         If multiple threads try to modify the same atomic variable simultaneously using +=, the result can be unpredictable and lead to data races.
 
+        -->Maybe wrong??
 
 -----------------------------------------------------------------------------------------------------------------------
     How does using e.g. += on atomic types relate to using atomic functions such as atomic_fetch_add?
@@ -77,13 +78,16 @@ Answer the following questions:
         While atomic types guarantee that the read-modify-write operation itself is atomic,
         it doesn't guarantee thread safety.
         If multiple threads try to modify the same atomic variable simultaneously using +=,
-        the result can be unpredictable and lead to data races.
+        //wrong! the result can be unpredictable and lead to data races.
+        This is handled -> therefore += can be used instead of atomic_fetch_add on atomic types!!!!
+
 
         atomic_fetch_add(atomic_object, operand):
         This function is specifically designed for atomic operations on concurrent access.
         It performs an atomic addition of the operand to the atomic object and returns the old value.
         This ensures that even if multiple threads call atomic_fetch_add on the same object concurrently,
         the addition will be performed correctly without data corruption.
+
 
 
 -----------------------------------------------------------------------------------------------------------------------
