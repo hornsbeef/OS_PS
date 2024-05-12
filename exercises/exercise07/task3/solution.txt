@@ -1,0 +1,11 @@
+
+
+The file contains a version which spawns several threads. Compile the code with make task3 and run it.
+Find out how many threads it spawns.
+strace -f -e trace=clone -o output.txt ./task3 -> gives me 2001 lines
+but :
+for (size_t i = 0; i < NUM_EVALUATIONS; i++) {...} with NUM_EVALUATIONS being 2000 should be 2000 threads.
+
+
+
+
