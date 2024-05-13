@@ -4,6 +4,10 @@
 #include <stdlib.h>
 #include "roulette.h"
 
+//for testing:
+#define THREAD_POOL
+//end for testing
+
 #if ((!defined(THREAD_PER_JOB) && !defined(THREAD_POOL)) || (defined(THREAD_PER_JOB) && defined(THREAD_POOL)))
 	#error "Define exactly one of THREAD_PER_JOB, THREAD_POOL" // this causes an error
 #endif

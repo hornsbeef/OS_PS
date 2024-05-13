@@ -1,3 +1,7 @@
+
+#define DEBUG 1
+
+
 #define _POSIX_C_SOURCE 199309L
 #define _DEFAULT_SOURCE
 // #define _BSD_SOURCE
@@ -19,8 +23,6 @@ myqueue myQueue;
 
 
 void pthread_error_funct(int pthread_returnValue);
-uint64_t generate_unique_id();
-
 _Noreturn void* pthread_worker_funct(void* arg);
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 static void myqueue_init(myqueue* q) {
@@ -33,22 +35,49 @@ static bool myqueue_is_empty(myqueue* q) {
 
 static void myqueue_push(myqueue* q, job_function jobFunction, job_arg jobArg, job_id jobID) {
     struct job_queue_entry* entry = malloc(sizeof(struct job_queue_entry));
+    //struct myqueue_entry* entry = malloc(sizeof(struct myqueue_entry));   //old
     entry->jobFunction = jobFunction;
     entry->jobArg = jobArg;
     entry->jobID = jobID;
     STAILQ_INSERT_TAIL(q, entry, entries);
 }
 
-static void myqueue_pop(myqueue* q, job_queue_entry* temp) {
+
+//todo: after pool_create -> why is it going straight here?
+//static void myqueue_pop(myqueue* q, job_queue_entry* temp) {  //old
+static void myqueue_pop(myqueue* q, job_queue_entry** temp) {
+    //checking if queue is empty
+    //mutex is still locked from function calling myqueue_pop
+
+    if (myqueue_is_empty(q)) {
+#ifdef DEBUG
+        fprintf(stderr, "Queue is empty! \n");
+#endif
+        return;
+    }
+
+
     assert(!myqueue_is_empty(q));
     struct job_queue_entry* entry = STAILQ_FIRST(q);
+    //struct myqueue_entry* entry = STAILQ_FIRST(q);    //old
 
-    temp->jobFunction = entry->jobFunction;     //todo: check if works
-    temp->jobArg = entry->jobArg;                //todo: check if works
-    temp->jobID = entry->jobID;         //must not forget! //todo: check if correct to add here!
+    //different approach
+    //temp->jobFunction = entry->jobFunction;     //todo: check if works
+    //temp->jobArg = entry->jobArg;                //todo: check if works
+    //temp->jobID = entry->jobID;         //must not forget! //todo: check if correct to add here!
+    //new approach: just give entry back and dont free it!
+
+    if(temp == NULL){
+        fprintf(stderr, "TEMP IS NULL ");
+    }
+    *temp = entry;     //invalid write
+
 
     STAILQ_REMOVE_HEAD(q, entries);
-    free(entry);
+
+
+    //free(entry);  //old
+    //pthread_mutex_unlock(&mutex_queue);
 }
 
 
@@ -62,6 +91,12 @@ static void myqueue_pop(myqueue* q, job_queue_entry* temp) {
  * Whenever a job is available, (exactly) one worker thread removes it from the myQueue and runs it.
  */
 void pool_create(thread_pool* pool, size_t size){
+
+#ifdef DEBUG
+    fprintf(stderr, "Pool creation: start\n");
+#endif
+
+
 //srand init
     srand(time(NULL));
 
@@ -73,39 +108,62 @@ void pool_create(thread_pool* pool, size_t size){
     pthread_mutexattr_t mutex_queue_attr;
     pthread_error_funct(pthread_mutexattr_init(&mutex_queue_attr));
     pthread_error_funct(pthread_mutexattr_setpshared(&mutex_queue_attr, PTHREAD_PROCESS_SHARED));
-    //todo: why compiler warining???
     pthread_error_funct(pthread_mutexattr_settype(&mutex_queue_attr, PTHREAD_MUTEX_ERRORCHECK));
-    //todo: why compiler error?? PTHREAD_MUTEX_ERRORCHECK
 
     pthread_error_funct(pthread_mutex_init(&mutex_queue, &mutex_queue_attr));
 
 //cond_data_pushed_to_queue init:
     pthread_error_funct(pthread_cond_init(&cond_data_pushed_to_queue, NULL));
 
+#ifdef DEBUG
+    fprintf(stderr, "Pool creation: init mutex - finished\n");
+#endif
+
+
+
+
 //init thread_pool:
-//todo: lock mutex
+    pthread_error_funct(pthread_mutex_lock(&mutex_queue));
     pool->queue = &myQueue;
     pool->num_threads = size;
     pool->mutex_queue = mutex_queue;
     pool->cond_data_pushed_to_queue = cond_data_pushed_to_queue;
     pool->stop = false;
 
-    pool->tid = malloc(pool->num_threads * sizeof(*(pool->tid)));
+
+
+    //pool->tid = malloc(pool->num_threads * sizeof(*(pool->tid)));
+    pool->tid = malloc(pool->num_threads * sizeof(pthread_t));  //todo: maybe here wrong alloc?
     if(pool->tid == NULL){
         fprintf(stderr, "malloc for tid-array failed");
         exit(EXIT_FAILURE);
     }
 
+#ifdef DEBUG
+    fprintf(stderr, "Pool creation: Pool_init - finished\n");
+#endif
+
+
+
 //starting size amount of worker threads:
     for(size_t i = 0; i<size; i++){
-        pool->id_tid = i;
+        //pool->id_tid = i;   //todo: makes no sense -> overwrites itself. see if works without
 
-        pthread_error_funct(
-                pthread_create(&(pool->tid[i]), NULL, &pthread_worker_funct, &pool));
+        pthread_error_funct(pthread_create(&(pool->tid[i]), NULL, &pthread_worker_funct, &pool));
+        //pthread_error_funct(pthread_create((pool->tid+i), NULL, &pthread_worker_funct, &pool));
         //TODO: check pool->tid[i] if works!
     }
 //todo: unlock mutex
+    pthread_mutex_unlock(&mutex_queue);
     //todo: check if everything done to create pool
+
+#ifdef DEBUG
+    fprintf(stderr, "Pool creation: Creating size amount of threads - finished\n");
+#endif
+#ifdef DEBUG
+    fprintf(stderr, "Pool creation: function finished\n");
+#endif
+
 
 }
 
@@ -220,19 +278,31 @@ _Noreturn void* pthread_worker_funct(void* arg){
             pthread_error_funct(pthread_cond_wait(&cond_data_pushed_to_queue, &mutex_queue));
         }
 
-        job_queue_entry temp;
+        //job_queue_entry temp; //other approach
+        job_queue_entry* temp = NULL;   //new
         myqueue_pop(queue, &temp);
         pthread_mutex_unlock(&mutex_queue);
 
 
+
+        if(temp->jobFunction == NULL){
+            fprintf(stderr, "Jobfunction NULL\n");
+        }
+
+
         //executing the job (the function given as work)
-        temp.jobFunction(temp.jobArg);
+        //temp.jobFunction(temp.jobArg);  //old //todo: this seems to fail
+        temp->jobFunction(temp->jobArg);
 
         //signal that job is finished.
         pthread_mutex_lock(&mutex_queue);
-        temp.jobID->completed = true;       //TODO: warning: might be uninitialized!
-        pthread_cond_signal(&temp.jobID->job_cond);
+        //temp.jobID->completed = true;       //old //: warning: might be uninitialized!
+        temp->jobID->completed = true;
+        pthread_cond_signal(&(temp->jobID->job_cond));
         pthread_mutex_unlock(&mutex_queue);
+
+
+        free(temp); //freeing temp that points to the job_queue_entry from myqueue_pop
 
 
     }

@@ -11,4 +11,6 @@ add_executable(exercise07_task3.c
         task3/task3.c
         task3/thread_pool.h
         task3/thread_pool.c
+        task3/roulette.c
+        task3/roulette.h
 )

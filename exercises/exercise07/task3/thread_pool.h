@@ -27,6 +27,7 @@ typedef job_status* job_id;    //?good choice?
  * This is the stub of a simple job myQueue.
  */
 typedef struct job_queue_entry {
+//struct myqueue_entry {    //old -> maybe better?
     // TODO: Design the contents(->fields) for a myQueue, which stores jobs.:
     //todo: check if additional parameter (for job_id, etc.) is necessary??
     //how to include job_struct ?? or is even necessary?
@@ -36,9 +37,11 @@ typedef struct job_queue_entry {
     job_id jobID;
 
     STAILQ_ENTRY(job_queue_entry) entries;
+    //STAILQ_ENTRY(myqueue_entry) entries;  //old
 }job_queue_entry;
 
 STAILQ_HEAD(myqueue_head, job_queue_entry);
+//STAILQ_HEAD(myqueue_head, myqueue_entry); //old
 
 typedef struct myqueue_head myqueue;
 
@@ -66,8 +69,8 @@ typedef struct {
     pthread_mutex_t mutex_queue;
     pthread_cond_t cond_data_pushed_to_queue;
     bool stop;
-    size_t id_tid;
-    pthread_t* tid;          //check if works
+    //size_t id_tid;          //todo: what was that for?
+    pthread_t* tid;          //check if works   //for saving the pthead_t of each thread. later for joining.
 } thread_pool;
 
 
