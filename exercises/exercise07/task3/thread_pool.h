@@ -42,35 +42,16 @@ STAILQ_HEAD(myqueue_head, job_queue_entry);
 
 typedef struct myqueue_head myqueue;
 
-static void myqueue_init(myqueue* q) {
-    STAILQ_INIT(q);
-}
-
-static bool myqueue_is_empty(myqueue* q) {
-    return STAILQ_EMPTY(q);
-}
-
-//todo: why compiler error that unused?? is used in thread_pool.c
-static void myqueue_push(myqueue* q, job_function jobFunction, job_arg jobArg, job_id jobID) {
-    struct job_queue_entry* entry = malloc(sizeof(struct job_queue_entry));
-    entry->jobFunction = jobFunction;
-    entry->jobArg = jobArg;
-    entry->jobID = jobID;
-    STAILQ_INSERT_TAIL(q, entry, entries);
-}
-
-//todo: why compiler error that unused?? is used in thread_pool.c
-static void myqueue_pop(myqueue* q, job_queue_entry* temp) {
-    assert(!myqueue_is_empty(q));
-    struct job_queue_entry* entry = STAILQ_FIRST(q);
-
-    temp->jobFunction = entry->jobFunction;     //todo: check if works
-    temp->jobArg = entry->jobArg;                //todo: check if works
-
-    STAILQ_REMOVE_HEAD(q, entries);
-    free(entry);
-}
-
+////static void myqueue_init(myqueue* q);     //compiler warining about
+//static void myqueue_init(myqueue* q);
+//
+//static bool myqueue_is_empty(myqueue* q);
+//
+////todo: why compiler error that unused?? is used in thread_pool.c
+//static void myqueue_push(myqueue* q, job_function jobFunction, job_arg jobArg, job_id jobID);
+//
+////todo: why compiler error that unused?? is used in thread_pool.c
+//static void myqueue_pop(myqueue* q, job_queue_entry* temp);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 

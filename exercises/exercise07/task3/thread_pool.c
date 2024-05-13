@@ -23,7 +23,36 @@ uint64_t generate_unique_id();
 
 _Noreturn void* pthread_worker_funct(void* arg);
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+static void myqueue_init(myqueue* q) {
+    STAILQ_INIT(q);
+}
 
+static bool myqueue_is_empty(myqueue* q) {
+    return STAILQ_EMPTY(q);
+}
+
+static void myqueue_push(myqueue* q, job_function jobFunction, job_arg jobArg, job_id jobID) {
+    struct job_queue_entry* entry = malloc(sizeof(struct job_queue_entry));
+    entry->jobFunction = jobFunction;
+    entry->jobArg = jobArg;
+    entry->jobID = jobID;
+    STAILQ_INSERT_TAIL(q, entry, entries);
+}
+
+static void myqueue_pop(myqueue* q, job_queue_entry* temp) {
+    assert(!myqueue_is_empty(q));
+    struct job_queue_entry* entry = STAILQ_FIRST(q);
+
+    temp->jobFunction = entry->jobFunction;     //todo: check if works
+    temp->jobArg = entry->jobArg;                //todo: check if works
+    temp->jobID = entry->jobID;         //must not forget! //todo: check if correct to add here!
+
+    STAILQ_REMOVE_HEAD(q, entries);
+    free(entry);
+}
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 /***
  * The void pool_create(thread_pool* pool, size_t size) function
@@ -195,11 +224,13 @@ _Noreturn void* pthread_worker_funct(void* arg){
         myqueue_pop(queue, &temp);
         pthread_mutex_unlock(&mutex_queue);
 
+
+        //executing the job (the function given as work)
         temp.jobFunction(temp.jobArg);
 
         //signal that job is finished.
         pthread_mutex_lock(&mutex_queue);
-        temp.jobID->completed = true;
+        temp.jobID->completed = true;       //TODO: warning: might be uninitialized!
         pthread_cond_signal(&temp.jobID->job_cond);
         pthread_mutex_unlock(&mutex_queue);
 
