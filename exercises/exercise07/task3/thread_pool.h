@@ -50,6 +50,7 @@ static bool myqueue_is_empty(myqueue* q) {
     return STAILQ_EMPTY(q);
 }
 
+//todo: why compiler error that unused?? is used in thread_pool.c
 static void myqueue_push(myqueue* q, job_function jobFunction, job_arg jobArg, job_id jobID) {
     struct job_queue_entry* entry = malloc(sizeof(struct job_queue_entry));
     entry->jobFunction = jobFunction;
@@ -58,6 +59,7 @@ static void myqueue_push(myqueue* q, job_function jobFunction, job_arg jobArg, j
     STAILQ_INSERT_TAIL(q, entry, entries);
 }
 
+//todo: why compiler error that unused?? is used in thread_pool.c
 static void myqueue_pop(myqueue* q, job_queue_entry* temp) {
     assert(!myqueue_is_empty(q));
     struct job_queue_entry* entry = STAILQ_FIRST(q);

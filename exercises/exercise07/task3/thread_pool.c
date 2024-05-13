@@ -1,3 +1,7 @@
+#define _POSIX_C_SOURCE 199309L
+#define _DEFAULT_SOURCE
+// #define _BSD_SOURCE
+
 #include <pthread.h>
 #include <string.h>
 #include <stdio.h>
@@ -40,7 +44,9 @@ void pool_create(thread_pool* pool, size_t size){
     pthread_mutexattr_t mutex_queue_attr;
     pthread_error_funct(pthread_mutexattr_init(&mutex_queue_attr));
     pthread_error_funct(pthread_mutexattr_setpshared(&mutex_queue_attr, PTHREAD_PROCESS_SHARED));
+    //todo: why compiler warining???
     pthread_error_funct(pthread_mutexattr_settype(&mutex_queue_attr, PTHREAD_MUTEX_ERRORCHECK));
+    //todo: why compiler error?? PTHREAD_MUTEX_ERRORCHECK
 
     pthread_error_funct(pthread_mutex_init(&mutex_queue, &mutex_queue_attr));
 
@@ -62,7 +68,7 @@ void pool_create(thread_pool* pool, size_t size){
     }
 
 //starting size amount of worker threads:
-    for(int i = 0; i<size; i++){
+    for(size_t i = 0; i<size; i++){
         pool->id_tid = i;
 
         pthread_error_funct(
@@ -175,7 +181,7 @@ _Noreturn void* pthread_worker_funct(void* arg){
     myqueue* queue = pool->queue;
     pthread_mutex_unlock(&mutex_queue);
 
-    infinity_loop:
+    //infinity_loop:
     while (true) {
 
         pthread_error_funct(pthread_mutex_lock(&mutex_queue));
