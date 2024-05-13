@@ -87,7 +87,7 @@ int main(void) {
 	}
 
 #ifdef THREAD_POOL
-	pool_destroy(&my_pool);
+	pool_destroy(&my_pool);     //cleanup??
 #endif
 	free(jobs);
 	int black_pockets = 18;

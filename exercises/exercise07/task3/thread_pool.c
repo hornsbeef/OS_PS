@@ -48,6 +48,7 @@ void pool_create(thread_pool* pool, size_t size){
     pthread_error_funct(pthread_cond_init(&cond_data_pushed_to_queue, NULL));
 
 //init thread_pool:
+//todo: lock mutex
     pool->queue = &myQueue;
     pool->num_threads = size;
     pool->mutex_queue = mutex_queue;
@@ -68,7 +69,7 @@ void pool_create(thread_pool* pool, size_t size){
                 pthread_create(&(pool->tid[i]), NULL, &pthread_worker_funct, &pool));
         //TODO: check pool->tid[i] if works!
     }
-
+//todo: unlock mutex
     //todo: check if everything done to create pool
 
 }
@@ -101,33 +102,52 @@ job_id pool_submit(thread_pool* pool, job_function start_routine, job_arg arg) {
 /**
  * The void pool_await(job_id id) function waits for the job with the given job_id to finish.
  */
+ //to finish what? executing its current job? or finish executing after it executed all jobs in queue?
 void pool_await(job_id id) {
     //https://www.perplexity.ai/search/typedef-void-jobfunctionvoid-j9g0hq9XS1KLJ9f4WVHvXw
+    //https://nachtimwald.com/2019/04/12/thread-pool-in-c/#waiting-for-processing-to-complete
+
     pthread_mutex_lock(&mutex_queue);
 
-    // Find the job_status entry for the given job_id
-    // This can be done using a hash table or a linear search
     job_status* job_stat = id;
 
     while (!job_stat->completed) {
         pthread_cond_wait(&job_stat->job_cond, &mutex_queue);
     }
-    //todo: free the job_status memory!!!
-    free(id);
+
+    free(id);   //freeing the job_struct, that was alloc'd in pool_submit
 
     pthread_mutex_unlock(&mutex_queue);
 
+    //todo: ??? do anything else? -> maybe stop them from taking new jobs?
+    return;     //not needed, but for my sanity.
 
 
 
 }
 
 /**
- * The void pool_destroy(thread_pool* pool) shuts down the thread pool and frees all associated resources.
+ * The void pool_destroy(thread_pool* pool)
+ * shuts down the thread pool and frees all associated resources.
  * Worker threads finish the currently running job (if any) and then stop gracefully.
  */
 void pool_destroy(thread_pool* pool) {
-#error "TODO"
+
+    pthread_error_funct(pthread_mutex_lock(&mutex_queue));
+
+    pool->stop = true; //-> telling workers to quit
+    pthread_cond_broadcast(&(pool->cond_data_pushed_to_queue)); //making sure all workers get the memo.
+
+    pthread_mutex_unlock(&mutex_queue);
+
+    for (size_t i = 0; i < pool->num_threads; i++) {
+        pthread_join(pool->tid[i], NULL);
+    }
+
+    free(pool->tid);
+    pthread_mutex_destroy(&pool->mutex_queue);
+    pthread_cond_destroy(&pool->cond_data_pushed_to_queue);
+
 }
 
 
@@ -160,8 +180,8 @@ _Noreturn void* pthread_worker_funct(void* arg){
 
         pthread_error_funct(pthread_mutex_lock(&mutex_queue));
 
-        //cond_data_pushed_to_queue wait:
-        while (myqueue_is_empty(pool->queue)) {             //catch for spurious wakeup!
+        //cond_data_pushed_to_queue wait: && checking if pool is shutting down
+        while (myqueue_is_empty(pool->queue) && !pool->stop) {             //catch for spurious wakeup!
             pthread_error_funct(pthread_cond_wait(&cond_data_pushed_to_queue, &mutex_queue));
         }
 
@@ -181,6 +201,8 @@ _Noreturn void* pthread_worker_funct(void* arg){
     }
 }
 
+
+//not needed anymore:
 uint64_t generate_unique_id() {
     uint64_t timestamp = (uint64_t)time(NULL); // Get current timestamp
     uint64_t factor = 1000000; // Adjust this factor as needed
