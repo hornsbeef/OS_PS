@@ -156,14 +156,14 @@ job_id pool_submit(thread_pool* pool, job_function start_routine, job_arg arg) {
     job_stat->pool = pool;
 //enddiff
 
-
-    pthread_error_funct(pthread_mutex_lock(&(pool->mutex_queue)));
+        //TODO:
+    //pthread_error_funct(pthread_mutex_lock(&(pool->mutex_queue)));
 
     //uint64_t id = generate_unique_id();
     myqueue_push(pool->queue, start_routine, arg, job_stat);
 
     pthread_cond_signal(&(pool->cond_data_pushed_to_queue));    //why is example using broadcast here?
-    pthread_mutex_unlock(&(pool->mutex_queue));
+    //pthread_mutex_unlock(&(pool->mutex_queue));
 
 
     return job_stat;    //different from example
@@ -311,6 +311,9 @@ void* pthread_worker_funct(void* arg){
 
             work->jobID->completed = true;              //sets jobID to completed, after running job.
             pthread_cond_signal(&(work->jobID->job_cond));
+
+            //TODO: statt condition variable -> eine semaphore pro job in die job_struct
+
             /*TODO:
              * Thread #2: pthread_cond_{signal,broadcast}: dubious: associated lock is not held by any thread
              * Thread #3: pthread_cond_{signal,broadcast}: dubious: associated lock is not held by any thread

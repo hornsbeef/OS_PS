@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <sys/queue.h> // see myQueue(7) & stailq(3)
+#include <stdatomic.h>
 
 
 typedef void* (*job_function)(void *);      //typedef void (*thread_func_t)(void *arg);
@@ -24,7 +25,7 @@ typedef struct {
     size_t num_threads;
     pthread_mutex_t mutex_queue;
     pthread_cond_t cond_data_pushed_to_queue;
-    bool stop;
+    atomic_bool stop;
     pthread_t* tid;          //check if works   //for saving the pthead_t of each thread. later for joining.
 } thread_pool;
 
