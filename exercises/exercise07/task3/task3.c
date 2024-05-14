@@ -19,7 +19,8 @@
 	#include <pthread.h>
 #endif
 
-#define NUM_EVALUATIONS 2000
+#define NUM_EVALUATIONS 2000    //original
+//#define NUM_EVALUATIONS 20    //for testing
 #define NUM_SPINS 100000lu
 
 typedef struct job_struct {
@@ -77,6 +78,9 @@ int main(void) {
 	uint64_t min_result = UINT64_MAX;
 	uint64_t max_result = 0;
 	for (size_t i = 0; i < NUM_EVALUATIONS; i++) {
+        //testing:
+        //fprintf(stderr, "i= %zu\n", i);
+
 #ifdef THREAD_POOL
 		pool_await(job_ids[i]);
 #else
