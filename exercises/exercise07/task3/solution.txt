@@ -13,11 +13,114 @@ Complete the following tasks:
 
     Experiment with different thread pool sizes (change the POOL_SIZE constant).
     Which size results in the best performance and why?
+Tested on Destop PC at home:
+each Size tested 3 times -> average:
 
-    Compare the performance of task3 and task3a (with the optimal thread pool size) by benchmarking them with /usr/bin/time -v and report your findings.
+Pool: 5
+Elapsed (wall clock) time (h:mm:ss or m:ss): 0:01.55
+
+Pool: 24
+Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.43
+
+Pool: 50
+Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.34
+
+Pool: 75
+Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.31
+
+Pool: 100
+Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.32
+
+Pool: 200
+Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.34
+
+Pool: 400
+Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.38
+
+--> it seems that having between 75 to 100 threads provides the best performance for the given workload on this system.
+--> why: this number probably depends on multiple factors, such as hardware-related: number of available cores
+        and on task-specifics: if it is CPU-bound or I/O-bound.
+--> the decreasing speed with even higher thread-counts is probably due to decreased efficiency from increased context switching/resource contention.
+
+
+Compare the performance of task3 and task3a (with the optimal thread pool size) by benchmarking them with /usr/bin/time -v and report your findings.
+Command being timed: "./task3a" with pool size 85
+	User time (seconds): 7.29
+	System time (seconds): 0.00
+	Percent of CPU this job got: 2338%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.31
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 2992
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 13
+	Minor (reclaiming a frame) page faults: 411
+	Voluntary context switches: 385
+	Involuntary context switches: 1470
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 0
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+
+		Command being timed: "./task3"
+    	User time (seconds): 4.22
+    	System time (seconds): 0.06
+    	Percent of CPU this job got: 2062%
+    	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.20
+    	Average shared text size (kbytes): 0
+    	Average unshared data size (kbytes): 0
+    	Average stack size (kbytes): 0
+    	Average total size (kbytes): 0
+    	Maximum resident set size (kbytes): 17896
+    	Average resident set size (kbytes): 0
+    	Major (requiring I/O) page faults: 0
+    	Minor (reclaiming a frame) page faults: 4229
+    	Voluntary context switches: 4700
+    	Involuntary context switches: 1921
+    	Swaps: 0
+    	File system inputs: 0
+    	File system outputs: 0
+    	Socket messages sent: 0
+    	Socket messages received: 0
+    	Signals delivered: 0
+    	Page size (bytes): 4096
+    	Exit status: 0
+
+    	The treadpool version seems to be able to utilize the CPU more efficiently (CPU usage) -> keeps CPU busy by distributing workload
+    	AND
+    	The thread pool version has a low number of voluntary context switches (385 vs. 4700)
+    	    -> worker threads can efficiently wait for jobs and resume execution when necessary
+    	        -->reduces the need for voluntary context switches
+
+        BUT:
+        Despite the higher CPU utilization and better context switching behavior,
+         the thread pool version has a slightly longer elapsed time (0.31 seconds vs. 0.20 seconds).
+         This could be due to the overhead of managing the thread pool, such as job submission,
+         waiting for job completion, and synchronization between threads.
+
+
+
     Answer these questions:
         What are the advantages of using a thread pool rather than spawning a new thread for each job?
+         Creating and destroying threads can be expensive in terms of CPU and memory usage.
+         By reusing a fixed set of worker threads in a thread pool, the overhead of thread creation and termination is minimized
+         And with a thread pool, the number of threads is limited to the pool size,
+         preventing the application from creating an unbounded number of threads and consuming excessive system resources.
+
+
+
         In which situations does it make sense to use a thread pool?
+         When there are many short-lived tasks to be done, a pool makes more sense, as the expense for creating and destorying
+         the threads is kept to a minimum.
+         But when running a small number of long-running tasks,
+         the overhead of managing the thread pool might outweigh the benefits.
+         In such cases, creating dedicated threads for these tasks might be more efficient.
 
 
 

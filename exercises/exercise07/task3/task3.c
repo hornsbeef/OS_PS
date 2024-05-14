@@ -5,7 +5,7 @@
 #include "roulette.h"
 
 //for testing:
-#define THREAD_POOL
+//#define THREAD_POOL
 //end for testing
 
 #if ((!defined(THREAD_PER_JOB) && !defined(THREAD_POOL)) || (defined(THREAD_PER_JOB) && defined(THREAD_POOL)))
@@ -14,12 +14,13 @@
 
 #ifdef THREAD_POOL
 	#include "thread_pool.h"
-	#define POOL_SIZE 50
+	#define POOL_SIZE 85
 #else
 	#include <pthread.h>
 #endif
 
 #define NUM_EVALUATIONS 2000    //original
+//#define NUM_EVALUATIONS 20000    //testing
 //#define NUM_EVALUATIONS 20    //for testing
 #define NUM_SPINS 100000lu
 

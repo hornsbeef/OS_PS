@@ -20,3 +20,11 @@ thread_pool.o: thread_pool.c thread_pool.h
 task3a.o: task3.c roulette.h  thread_pool.h
 	$(CC) $(CFLAGS) $(LDFLAGS) -DTHREAD_POOL -c -o $@ $<
 
+
+.PHONY: time
+time:
+	/usr/bin/time -v ./task3a
+
+.PHONY: time3
+time3:
+	/usr/bin/time -v ./task3

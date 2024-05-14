@@ -66,7 +66,7 @@ static job_queue_entry* myqueue_pop(myqueue* q) {
 
     return entry;
 
-    //free(entry);  //old   //-> is freed in function calling myqueue_pop()
+    //-> is freed in function calling myqueue_pop()
 }
 
 
@@ -88,21 +88,28 @@ void pool_create(thread_pool* pool, size_t size){
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //mutex and mutex_attr init: -> try if works with this too
-//    pthread_mutexattr_t mutex_queue_attr;
-//    pthread_error_funct(pthread_mutexattr_init(&mutex_queue_attr));
-//    pthread_error_funct(pthread_mutexattr_setpshared(&mutex_queue_attr, PTHREAD_PROCESS_SHARED));
-//    pthread_error_funct(pthread_mutexattr_settype(&mutex_queue_attr, PTHREAD_MUTEX_ERRORCHECK));
-//
-//    pthread_error_funct(pthread_mutex_init(&mutex_queue, &mutex_queue_attr));
+//TODO: WORKS WITH AND WITHOUT -> test performance -> very slight difference: tiny bit better for PTHREAD_MUTEX_NORMAL
+    pthread_mutexattr_t mutex_queue_attr;
+    pthread_error_funct(pthread_mutexattr_init(&mutex_queue_attr));
+    //pthread_error_funct(pthread_mutexattr_setpshared(&mutex_queue_attr, PTHREAD_PROCESS_SHARED)); //not really needed here.
+    pthread_error_funct(pthread_mutexattr_setpshared(&mutex_queue_attr, PTHREAD_PROCESS_PRIVATE));
+    //pthread_error_funct(pthread_mutexattr_settype(&mutex_queue_attr, PTHREAD_MUTEX_ERRORCHECK));
+    pthread_error_funct(pthread_mutexattr_settype(&mutex_queue_attr, PTHREAD_MUTEX_NORMAL));
+
+    pthread_error_funct(pthread_mutex_init(&mutex_queue, &mutex_queue_attr));
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    pthread_error_funct(pthread_mutex_init(&(pool->mutex_queue), NULL));
+    //pthread_error_funct(pthread_mutex_init(&(pool->mutex_queue), NULL));
+    pthread_error_funct(pthread_mutex_init(&(pool->mutex_queue), &mutex_queue_attr));
     pthread_error_funct(pthread_cond_init(&(pool->cond_data_pushed_to_queue), NULL));
 
 
     pthread_error_funct(pthread_mutex_lock(&(pool->mutex_queue)));
     //I am confused: I apparently should put the mutex in the pool_struct, but whenever I read/modify the pool_struct I
     //should only do so when the pool is locked...
+    //-> no makes (kind of) sense: e.g. pool-struct contains fields that are access by multiple threads (queue..) and
+    //ones that are accessed only by the main thread.
+    //AND mutexes can deal with being accessed by multiple threads at the same time
 
 
     myqueue_init(&myQueue); //initializing a myQueue for jobs.
@@ -111,23 +118,18 @@ void pool_create(thread_pool* pool, size_t size){
     pool->stop = false;     //different to example
 
 
-//different from example:
-    //pool->tid = malloc(pool->num_threads * sizeof(*(pool->tid)));
-
     pthread_t* tID_arr = malloc(pool->num_threads * sizeof(pthread_t));
     if(tID_arr == NULL){
         fprintf(stderr, "malloc for tid-array failed");
         exit(EXIT_FAILURE);
     }
-//enddif
-
-
 
 
     for(size_t i = 0; i<size; i++){
         pthread_error_funct(pthread_create(&(tID_arr[i]), NULL, pthread_worker_funct, pool));
 
-        //pthread_error_funct(pthread_detach(tID_arr[i])); //resources automagically release when thread terminates //TODO: maybe this causes problem with joining?
+        //pthread_error_funct(pthread_detach(tID_arr[i])); //resources automagically release when thread terminates
+        //This would caus problem, because the threads can not be joined -> commented out.
     }
     pool->tid = tID_arr;
 
@@ -146,7 +148,7 @@ void pool_create(thread_pool* pool, size_t size){
 job_id pool_submit(thread_pool* pool, job_function start_routine, job_arg arg) {
 
     if(pool == NULL){
-        return NULL;    //different from example
+        return NULL;
     }
 
 //different from example: job_stat struct
@@ -156,17 +158,16 @@ job_id pool_submit(thread_pool* pool, job_function start_routine, job_arg arg) {
     job_stat->pool = pool;
 //enddiff
 
-        //TODO:
+//works with and without locking mutex here, but without -> more helgrind-whining
     //pthread_error_funct(pthread_mutex_lock(&(pool->mutex_queue)));
 
-    //uint64_t id = generate_unique_id();
     myqueue_push(pool->queue, start_routine, arg, job_stat);
-
     pthread_cond_signal(&(pool->cond_data_pushed_to_queue));    //why is example using broadcast here?
+
     //pthread_mutex_unlock(&(pool->mutex_queue));
 
 
-    return job_stat;    //different from example
+    return job_stat;
 
 }
 
@@ -181,7 +182,6 @@ void pool_await(job_id id) {    //TODO: this seems to be the culprit!
         return;
     }
 
-    //fprintf(stderr, "awaiting job with id: %p\n", id);
 
     pthread_mutex_lock(&(id->pool->mutex_queue));   //TODO: might this be a problem, because it is "different" pointer to mutex?
 
@@ -189,9 +189,8 @@ void pool_await(job_id id) {    //TODO: this seems to be the culprit!
     job_status* job_stat = id;
 
     while (!job_stat->completed) {
-        //pthread_cond_wait(&job_stat->job_cond, &(id->pool->mutex_queue));   //TODO: here LOCKING MAYBE?
-        pthread_cond_wait(&job_stat->job_cond, &(id->pool->mutex_queue));   //TODO: here LOCKING MAYBE?
-    }   //stops here, because a job has not finished.
+        pthread_cond_wait(&job_stat->job_cond, &(id->pool->mutex_queue));
+    }
 
 
 
@@ -246,7 +245,7 @@ void pool_destroy(thread_pool* pool) {
 
     free(pool->tid);
     pthread_mutex_destroy(&pool->mutex_queue);
-    pthread_cond_destroy(&pool->cond_data_pushed_to_queue);   //TODO: Thread #1: pthread_cond_destroy: destruction of condition variable being waited upon
+    pthread_cond_destroy(&pool->cond_data_pushed_to_queue);
 
     //pool is NOT malloc'd, it was provided by main!
     //-> DO NOT FREE!
