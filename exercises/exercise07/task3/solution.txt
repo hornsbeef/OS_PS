@@ -2,9 +2,23 @@
 
 The file contains a version which spawns several threads. Compile the code with make task3 and run it.
 Find out how many threads it spawns.
-strace -f -e trace=clone -o output.txt ./task3 -> gives me 2001 lines
-but :
-for (size_t i = 0; i < NUM_EVALUATIONS; i++) {...} with NUM_EVALUATIONS being 2000 should be 2000 threads.
+    strace -f -e trace=clone -o output.txt ./task3 -> gives me 2001 lines
+    but :
+    for (size_t i = 0; i < NUM_EVALUATIONS; i++) {...} with NUM_EVALUATIONS being 2000 should be 2000 threads.
+
+Complete the following tasks:
+
+    Choose suitable data types for the thread pool implementation and implement the functions in thread_pool.c.
+    ->Done
+
+    Experiment with different thread pool sizes (change the POOL_SIZE constant).
+    Which size results in the best performance and why?
+
+    Compare the performance of task3 and task3a (with the optimal thread pool size) by benchmarking them with /usr/bin/time -v and report your findings.
+    Answer these questions:
+        What are the advantages of using a thread pool rather than spawning a new thread for each job?
+        In which situations does it make sense to use a thread pool?
+
 
 
 
