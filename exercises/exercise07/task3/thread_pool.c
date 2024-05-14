@@ -1,4 +1,5 @@
-
+//https://www.perplexity.ai/search/typedef-void-jobfunctionvoid-j9g0hq9XS1KLJ9f4WVHvXw
+//https://nachtimwald.com/2019/04/12/thread-pool-in-c/#waiting-for-processing-to-complete
 #define DEBUG 1
 
 
@@ -17,13 +18,18 @@
 //    pthread_t tid;
 //} pthread_args;
 
+STAILQ_HEAD(myqueue_head, job_queue_entry);
+
+
+
+
 pthread_mutex_t mutex_queue;
 pthread_cond_t cond_data_pushed_to_queue;
 myqueue myQueue;
 
 
 void pthread_error_funct(int pthread_returnValue);
-_Noreturn void* pthread_worker_funct(void* arg);
+void* pthread_worker_funct(void* arg);
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 static void myqueue_init(myqueue* q) {
     STAILQ_INIT(q);
@@ -33,9 +39,14 @@ static bool myqueue_is_empty(myqueue* q) {
     return STAILQ_EMPTY(q);
 }
 
-static void myqueue_push(myqueue* q, job_function jobFunction, job_arg jobArg, job_id jobID) {
+static void myqueue_push(myqueue* q, job_function jobFunction, job_arg jobArg, job_id jobID) {  //error here maybe?
+    //mutex already locked at calling function!
     struct job_queue_entry* entry = malloc(sizeof(struct job_queue_entry));
-    //struct myqueue_entry* entry = malloc(sizeof(struct myqueue_entry));   //old
+    if(entry == NULL){
+        fprintf(stderr, "Malloc at myqueue_push failed -> crashing program");
+        exit(EXIT_FAILURE);
+    }
+
     entry->jobFunction = jobFunction;
     entry->jobArg = jobArg;
     entry->jobID = jobID;
@@ -43,45 +54,24 @@ static void myqueue_push(myqueue* q, job_function jobFunction, job_arg jobArg, j
 }
 
 
-//todo: after pool_create -> why is it going straight here?
-//static void myqueue_pop(myqueue* q, job_queue_entry* temp) {  //old
-static void myqueue_pop(myqueue* q, job_queue_entry** temp) {
-    //checking if queue is empty
+
+static job_queue_entry* myqueue_pop(myqueue* q) {
     //mutex is still locked from function calling myqueue_pop
-
-    if (myqueue_is_empty(q)) {
-#ifdef DEBUG
-        fprintf(stderr, "Queue is empty! \n");
-#endif
-        return;
-    }
-
 
     assert(!myqueue_is_empty(q));
     struct job_queue_entry* entry = STAILQ_FIRST(q);
-    //struct myqueue_entry* entry = STAILQ_FIRST(q);    //old
-
-    //different approach
-    //temp->jobFunction = entry->jobFunction;     //todo: check if works
-    //temp->jobArg = entry->jobArg;                //todo: check if works
-    //temp->jobID = entry->jobID;         //must not forget! //todo: check if correct to add here!
-    //new approach: just give entry back and dont free it!
-
-    if(temp == NULL){
-        fprintf(stderr, "TEMP IS NULL ");
-    }
-    *temp = entry;     //invalid write
 
 
     STAILQ_REMOVE_HEAD(q, entries);
 
+    return entry;
 
-    //free(entry);  //old
-    //pthread_mutex_unlock(&mutex_queue);
+    //free(entry);  //old   //-> is freed in function calling myqueue_pop()
 }
 
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 /***
  * The void pool_create(thread_pool* pool, size_t size) function
@@ -92,81 +82,63 @@ static void myqueue_pop(myqueue* q, job_queue_entry** temp) {
  */
 void pool_create(thread_pool* pool, size_t size){
 
-#ifdef DEBUG
-    fprintf(stderr, "Pool creation: start\n");
-#endif
+    if(size == 0){
+        size = 2; //set size to 2 as a default
+    }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//mutex and mutex_attr init: -> try if works with this too
+//    pthread_mutexattr_t mutex_queue_attr;
+//    pthread_error_funct(pthread_mutexattr_init(&mutex_queue_attr));
+//    pthread_error_funct(pthread_mutexattr_setpshared(&mutex_queue_attr, PTHREAD_PROCESS_SHARED));
+//    pthread_error_funct(pthread_mutexattr_settype(&mutex_queue_attr, PTHREAD_MUTEX_ERRORCHECK));
+//
+//    pthread_error_funct(pthread_mutex_init(&mutex_queue, &mutex_queue_attr));
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    pthread_error_funct(pthread_mutex_init(&(pool->mutex_queue), NULL));
+    pthread_error_funct(pthread_cond_init(&(pool->cond_data_pushed_to_queue), NULL));
 
 
-//srand init
-    srand(time(NULL));
-
-//initializing a myQueue for jobs.
-    myqueue_init(&myQueue);
+    pthread_error_funct(pthread_mutex_lock(&(pool->mutex_queue)));
+    //I am confused: I apparently should put the mutex in the pool_struct, but whenever I read/modify the pool_struct I
+    //should only do so when the pool is locked...
 
 
-//mutex and mutex_attr init:
-    pthread_mutexattr_t mutex_queue_attr;
-    pthread_error_funct(pthread_mutexattr_init(&mutex_queue_attr));
-    pthread_error_funct(pthread_mutexattr_setpshared(&mutex_queue_attr, PTHREAD_PROCESS_SHARED));
-    pthread_error_funct(pthread_mutexattr_settype(&mutex_queue_attr, PTHREAD_MUTEX_ERRORCHECK));
-
-    pthread_error_funct(pthread_mutex_init(&mutex_queue, &mutex_queue_attr));
-
-//cond_data_pushed_to_queue init:
-    pthread_error_funct(pthread_cond_init(&cond_data_pushed_to_queue, NULL));
-
-#ifdef DEBUG
-    fprintf(stderr, "Pool creation: init mutex - finished\n");
-#endif
-
-
-
-
-//init thread_pool:
-    pthread_error_funct(pthread_mutex_lock(&mutex_queue));
+    myqueue_init(&myQueue); //initializing a myQueue for jobs.
     pool->queue = &myQueue;
     pool->num_threads = size;
-    pool->mutex_queue = mutex_queue;
-    pool->cond_data_pushed_to_queue = cond_data_pushed_to_queue;
-    pool->stop = false;
+    pool->stop = false;     //different to example
 
 
-
+//different from example:
     //pool->tid = malloc(pool->num_threads * sizeof(*(pool->tid)));
-    pool->tid = malloc(pool->num_threads * sizeof(pthread_t));  //todo: maybe here wrong alloc?
-    if(pool->tid == NULL){
+
+    pthread_t* tID_arr = malloc(pool->num_threads * sizeof(pthread_t));
+    if(tID_arr == NULL){
         fprintf(stderr, "malloc for tid-array failed");
+
         exit(EXIT_FAILURE);
     }
-
-#ifdef DEBUG
-    fprintf(stderr, "Pool creation: Pool_init - finished\n");
-#endif
+//enddif
 
 
 
-//starting size amount of worker threads:
+
     for(size_t i = 0; i<size; i++){
-        //pool->id_tid = i;   //todo: makes no sense -> overwrites itself. see if works without
+        pthread_error_funct(pthread_create(&(tID_arr[i]), NULL, pthread_worker_funct, pool));
 
-        pthread_error_funct(pthread_create(&(pool->tid[i]), NULL, &pthread_worker_funct, &pool));
-        //pthread_error_funct(pthread_create((pool->tid+i), NULL, &pthread_worker_funct, &pool));
-        //TODO: check pool->tid[i] if works!
+        pthread_error_funct(pthread_detach(tID_arr[i])); //resources automagically release when thread terminates
     }
-//todo: unlock mutex
-    pthread_mutex_unlock(&mutex_queue);
-    //todo: check if everything done to create pool
+    pool->tid = tID_arr;
 
-#ifdef DEBUG
-    fprintf(stderr, "Pool creation: Creating size amount of threads - finished\n");
-#endif
-#ifdef DEBUG
-    fprintf(stderr, "Pool creation: function finished\n");
-#endif
-
+    pthread_mutex_unlock(&(pool->mutex_queue));
 
 }
 
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**
  *The job_id pool_submit(thread_pool* pool, job_function start_routine, job_arg arg)
  * submits a job to the thread pool (-> to the queue in the thread_pool)
@@ -174,50 +146,67 @@ void pool_create(thread_pool* pool, size_t size){
  */
 job_id pool_submit(thread_pool* pool, job_function start_routine, job_arg arg) {
 
-    //creating "unique-id" aka a pointer to a struct
-    job_status* job_stat = malloc(sizeof(job_status));
+    if(pool == NULL){
+        return NULL;    //different from example
+    }
+
+//different from example: job_stat struct
+    job_status* job_stat = malloc(sizeof(*job_stat));  //creating "unique-id" aka a pointer to a struct
     pthread_cond_init(&job_stat->job_cond, NULL);
     job_stat->completed = false;
+    job_stat->pool = pool;
+//enddiff
 
-    pthread_error_funct(pthread_mutex_lock(&mutex_queue));
+
+    pthread_error_funct(pthread_mutex_lock(&(pool->mutex_queue)));
 
     //uint64_t id = generate_unique_id();
     myqueue_push(pool->queue, start_routine, arg, job_stat);
 
-    pthread_cond_signal(&cond_data_pushed_to_queue);
-    pthread_mutex_unlock(&mutex_queue);
+    pthread_cond_signal(&(pool->cond_data_pushed_to_queue));    //why is example using broadcast here?
+    pthread_mutex_unlock(&(pool->mutex_queue));
 
 
-    return job_stat;
+    return job_stat;    //different from example
 
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**
  * The void pool_await(job_id id) function waits for the job with the given job_id to finish.
  */
  //to finish what? executing its current job? or finish executing after it executed all jobs in queue?
-void pool_await(job_id id) {
-    //https://www.perplexity.ai/search/typedef-void-jobfunctionvoid-j9g0hq9XS1KLJ9f4WVHvXw
-    //https://nachtimwald.com/2019/04/12/thread-pool-in-c/#waiting-for-processing-to-complete
+void pool_await(job_id id) {    //TODO: this seems to be the culprit!
 
-    pthread_mutex_lock(&mutex_queue);
+    if(id == NULL){
+        return;
+    }
+
+
+    pthread_mutex_lock(&(id->pool->mutex_queue));
 
     job_status* job_stat = id;
 
     while (!job_stat->completed) {
-        pthread_cond_wait(&job_stat->job_cond, &mutex_queue);
+        pthread_cond_wait(&job_stat->job_cond, &(id->pool->mutex_queue));   //TODO: here LOCKING MAYBE?
     }
 
-    free(id);   //freeing the job_struct, that was alloc'd in pool_submit
+    pthread_cond_destroy(&job_stat->job_cond);
 
-    pthread_mutex_unlock(&mutex_queue);
+    pthread_mutex_unlock(&(id->pool->mutex_queue));
 
-    //todo: ??? do anything else? -> maybe stop them from taking new jobs?
-    return;     //not needed, but for my sanity.
+    //do anything else? -> maybe stop them from taking new jobs?
 
 
+     free(id);   //freeing the job_struct, that was alloc'd in pool_submit
+
+
+     return;     //not needed, but for my sanity.
 
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 /**
  * The void pool_destroy(thread_pool* pool)
@@ -226,13 +215,26 @@ void pool_await(job_id id) {
  */
 void pool_destroy(thread_pool* pool) {
 
-    pthread_error_funct(pthread_mutex_lock(&mutex_queue));
+    if(pool == NULL){
+        return;
+    }
+
+    pthread_error_funct(pthread_mutex_lock(&(pool->mutex_queue)));
+
+    while(!myqueue_is_empty((pool->queue))){    //throwing away not started jobs!
+        myqueue_pop(pool->queue);
+    }
+
+    assert(myqueue_is_empty(pool->queue));
 
     pool->stop = true; //-> telling workers to quit
     pthread_cond_broadcast(&(pool->cond_data_pushed_to_queue)); //making sure all workers get the memo.
 
-    pthread_mutex_unlock(&mutex_queue);
+    pthread_mutex_unlock(&(pool->mutex_queue));
 
+
+    //different form example:
+    //waiting for threads that are currently running to finish and join.
     for (size_t i = 0; i < pool->num_threads; i++) {
         pthread_join(pool->tid[i], NULL);
     }
@@ -241,10 +243,12 @@ void pool_destroy(thread_pool* pool) {
     pthread_mutex_destroy(&pool->mutex_queue);
     pthread_cond_destroy(&pool->cond_data_pushed_to_queue);
 
+    free(pool);
+
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
 
 void pthread_error_funct(int pthread_returnValue) {
     if (pthread_returnValue != 0) {
@@ -257,11 +261,15 @@ void pthread_error_funct(int pthread_returnValue) {
     }
 }
 
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 /**
  * Each worker thread continuously checks the myQueue for submitted jobs.
  * Whenever a job is available, (exactly) one worker thread removes it from the myQueue and runs it.
  */
-_Noreturn void* pthread_worker_funct(void* arg){
+void* pthread_worker_funct(void* arg){
 
     pthread_error_funct(pthread_mutex_lock(&mutex_queue));
     thread_pool* pool = (thread_pool*) arg;
@@ -270,52 +278,47 @@ _Noreturn void* pthread_worker_funct(void* arg){
 
     //infinity_loop:
     while (true) {
-
         pthread_error_funct(pthread_mutex_lock(&mutex_queue));
 
         //cond_data_pushed_to_queue wait: && checking if pool is shutting down
         while (myqueue_is_empty(pool->queue) && !pool->stop) {             //catch for spurious wakeup!
-            pthread_error_funct(pthread_cond_wait(&cond_data_pushed_to_queue, &mutex_queue));
+            //pthread_error_funct(pthread_cond_wait(&cond_data_pushed_to_queue, &mutex_queue));
+            pthread_error_funct(pthread_cond_wait(&(pool->cond_data_pushed_to_queue), &(pool->mutex_queue)));
         }
 
-        //job_queue_entry temp; //other approach
-        job_queue_entry* temp = NULL;   //new
-        myqueue_pop(queue, &temp);
-        pthread_mutex_unlock(&mutex_queue);
-
-
-
-        if(temp->jobFunction == NULL){
-            fprintf(stderr, "Jobfunction NULL\n");
+        if(pool->stop){
+            break;
         }
 
 
-        //executing the job (the function given as work)
-        //temp.jobFunction(temp.jobArg);  //old //todo: this seems to fail
-        temp->jobFunction(temp->jobArg);
 
-        //signal that job is finished.
-        pthread_mutex_lock(&mutex_queue);
-        //temp.jobID->completed = true;       //old //: warning: might be uninitialized!
-        temp->jobID->completed = true;
-        pthread_cond_signal(&(temp->jobID->job_cond));
+        job_queue_entry* work = myqueue_pop(queue);
+        //maybe add: working_cnt to pool_struct and ++ here;
         pthread_mutex_unlock(&mutex_queue);
 
+        if(work != NULL){
+            work->jobFunction(work->jobArg);
 
-        free(temp); //freeing temp that points to the job_queue_entry from myqueue_pop
+            //signal that job is finished.  //different from example!
+            pthread_mutex_lock(&mutex_queue);
+            work->jobID->completed = true;
+            pthread_cond_signal(&(work->jobID->job_cond));
+            pthread_mutex_unlock(&mutex_queue);
 
+            free(work); //freeing temp that points to the job_queue_entry from myqueue_pop
+        }
 
     }
+
+    /* from example:
+    tm->thread_cnt--;
+    pthread_cond_signal(&(tm->working_cond));
+    pthread_mutex_unlock(&(tm->work_mutex));
+    return NULL;
+     */
+
+    pthread_mutex_unlock(&mutex_queue);
+    return NULL;
+
 }
 
-
-//not needed anymore:
-uint64_t generate_unique_id() {
-    uint64_t timestamp = (uint64_t)time(NULL); // Get current timestamp
-    uint64_t factor = 1000000; // Adjust this factor as needed
-    int random_num = rand(); // Generate a random number
-
-    uint64_t unique_id = timestamp * factor + random_num +1;
-
-    return unique_id;
-}
