@@ -50,8 +50,8 @@ int main(int argc, char *argv[]) {
 
     const struct sockaddr_in addr = {       //posted struct did NOT work
             .sin_family = AF_INET,
-            //.sin_addr = htonl(INADDR_ANY),
-            .sin_addr = htonl(INADDR_LOOPBACK),
+            .sin_addr = htonl(INADDR_ANY),
+            //.sin_addr = htonl(INADDR_LOOPBACK),
             .sin_port = htons(port),
     };
 
