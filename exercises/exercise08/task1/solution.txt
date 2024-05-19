@@ -1,0 +1,31 @@
+
+    Why is it important to use network byte order with TCP/IP?
+Computers can use either big-endian or little-endian byte ordering to store multi-byte data types like integers and floating-point numbers.
+If a big-endian machine sends data directly to a little-endian machine (or vice versa), the receiving machine will interpret the bytes in the wrong order, leading to incorrect data.
+To avoid this issue, TCP/IP uses network byte order, which is big-endian. Before sending multi-byte data over the network, the sending machine converts the data to network byte order using
+functions like htonl and htons (host to network long/short). The receiving machine then converts the data back to its native byte order using ntohl and ntohs (network to host long/short).
+By standardizing on network byte order, TCP/IP ensures that data is interpreted consistently regardless of the sending and receiving machines' native byte ordering.
+
+
+    The example uses INADDR_ANY. Could we also use INADDR_LOOPBACK?
+if the server only needs to be accessible from the local machine, using INADDR_LOOPBACK would be appropriate. This ensures that the server listens for connections only on the loopback interface, restricting access to local communication.
+
+
+    The example uses SOCK_STREAM. Name two other types of sockets and briefly explain their difference compared to SOCK_STREAM.
+SOCK_DGRAM (Datagram Sockets): Datagram sockets are connectionless and use the User Datagram Protocol (UDP) for data transmission.
+Unlike SOCK_STREAM (TCP), SOCK_DGRAM sockets do not establish a connection between the client and server.
+Each UDP packet is sent independently and may arrive out of order, be duplicated, or go missing without notification.
+Datagram sockets are typically used for applications that can tolerate some data loss, such as real-time audio/video streaming or DNS queries
+
+SOCK_RAW (Raw Sockets): Raw sockets provide direct access to the underlying network protocol layer, allowing applications to construct IP packets from scratch.
+This gives the application more control over the packet headers and enables advanced networking tasks like network discovery, routing protocols, and network monitoring.
+Raw sockets are less common than SOCK_STREAM and SOCK_DGRAM and are typically used by low-level network utilities or security tools.
+
+
+    What is the range of possible ports that we assign to addr.sin_port.
+0 and 65535
+ports below 1024 reserved for well-known services and ports above 49151 considered dynamic or private ports
+
+
+    Why is it a good idea to use a port greater or equal to 1024?
+Ports below 1024 are reserved for well-known services and require administrative privileges to bind to on most systems
