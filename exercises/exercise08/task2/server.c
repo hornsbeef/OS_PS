@@ -11,6 +11,7 @@
 #include <string.h>
 #include <setjmp.h>
 #include <math.h>
+#include <ctype.h>
 
 
 void check_argc(int argc);
@@ -181,13 +182,25 @@ unsigned long long int cast_to_ulli_with_check(char *string) {
 double cast_to_double_with_check(char* buf, jmp_buf msg_rec_loop) {
 
     //Region another validity check
-    ////char input_checker[1024]
+    char input_checker[1024];
     //unsigned long dot_value = strcspn(buf, ".");
     //fprintf(stderr, "%s\n",buf+dot_value);
     //if(!(buf[dot_value + 3] == '\0' || buf[dot_value + 3] == '\n')){
     //    fprintf(stderr, "Server: has more than 2 decimal points: %s\n", buf);
     //    longjmp(msg_rec_loop, 1);
     //}
+    memcpy(input_checker, buf, sizeof(*buf));
+    int i = 0;
+    while(buf[i] != '.'){
+        i++;
+    }
+    i += 3;
+    if(isdigit(buf[i])){
+        fprintf(stderr, "Has more than 2 Decimal places !!!ASDF ");
+        fprintf(stderr, "3rd Decimal place is %c\n", buf[i]);
+        longjmp(msg_rec_loop, 1);
+    }
+
 
 
     //End
