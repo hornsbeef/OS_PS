@@ -123,7 +123,7 @@ int main(int argc, char *argv[]) {
 
 
     while(interrupted == 0){        // *: need to implement CTRL + C handling
-        char buffer_from_server[1024] = {0};
+        //char buffer_from_server[1024] = {0};
         char buffer_input[1024] = {0};
         if(fgets(buffer_input, sizeof(buffer_input) - sizeof(char), stdin))    // * terminates input with \0
         {
@@ -147,14 +147,6 @@ int main(int argc, char *argv[]) {
         if(strcmp(buffer_input, "/shutdown\n") == 0 ){
             goto cleanup2;
         }
-
-
-        //int bytes_received = recv(sockfd, buffer_from_server, sizeof(buffer_from_server), 0);
-        //if (bytes_received > 0) {
-        //    buffer_from_server[bytes_received] = '\0';      // * set last char to \0
-        //    printf("Donations: %s\n", buffer_from_server);   //TODO:  Change to required format
-        //}
-
 
     }
 

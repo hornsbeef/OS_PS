@@ -193,16 +193,22 @@ double cast_to_double_with_check(char* buf, jmp_buf msg_rec_loop) {
     int i = 0;
     while(buf[i] != '.'){
         i++;
+        // * check that it does not run out of bounds
+        if(i>= 1021){
+            goto nodotinmsg;
+        }
     }
     i += 3;
+    //testing
+    //fprintf(stderr, "buf[i] = %c", buf[i]);
+
     if(isdigit(buf[i])){
-        fprintf(stderr, "Has more than 2 Decimal places !!!ASDF ");
-        fprintf(stderr, "3rd Decimal place is %c\n", buf[i]);
+        //fprintf(stderr, "Has more than 2 Decimal places !!! ");
+        //fprintf(stderr, "3rd Decimal place is %c\n", buf[i]);
         longjmp(msg_rec_loop, 1);
     }
 
-
-
+    nodotinmsg:
     //End
 
     errno = 0;
@@ -221,18 +227,18 @@ double cast_to_double_with_check(char* buf, jmp_buf msg_rec_loop) {
         longjmp(msg_rec_loop, 1);
     }
 
-    double fractionalPart, integralPart;
-    fractionalPart = modf(operand, &integralPart);  // Get the fractional part
-
-    fractionalPart *= 100;
-    double fractionalFractionalPart, fractionalIntegralPart;
-    fractionalFractionalPart = modf(fractionalPart, &fractionalIntegralPart);
-    // Check if the fractional part has no more than 2 decimal places
-    if (fractionalFractionalPart > 0)
-    {
-        //fprintf(stderr, "Fractional part contains more than 2 decimal places\n");
-        longjmp(msg_rec_loop, 1);
-    }
+//    double fractionalPart, integralPart;
+//    fractionalPart = modf(operand, &integralPart);  // Get the fractional part
+//
+//    fractionalPart *= 100;
+//    double fractionalFractionalPart, fractionalIntegralPart;
+//    fractionalFractionalPart = modf(fractionalPart, &fractionalIntegralPart);
+//    // Check if the fractional part has no more than 2 decimal places
+//    if (fractionalFractionalPart > 0)
+//    {
+//        //fprintf(stderr, "Fractional part contains more than 2 decimal places\n");
+//        longjmp(msg_rec_loop, 1);
+//    }
     //End
 
     //fprintf(stderr, "CLIENT: conversion successful -> return to main\n");
