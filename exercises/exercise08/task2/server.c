@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
     //Region socket init - listen
 
     errno = 0;
-    int sockfd = socket(PF_INET, SOCK_STREAM, 0);   //protocol: 0 for default for this , 6 for
+    int sockfd = socket(PF_INET, SOCK_STREAM, 0);   //protocol: 0 for default for this , 6 for tcp
     if (sockfd < 0) {
         perror("Error creating socket");
         return EXIT_FAILURE;
