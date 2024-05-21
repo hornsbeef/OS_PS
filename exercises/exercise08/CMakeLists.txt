@@ -17,5 +17,5 @@ add_executable(task2_server
 
 add_executable(task3_server
         task3/server.c
-        task3/myqueue.h
+        task3/client_queue.h
 )

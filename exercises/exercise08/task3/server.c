@@ -13,7 +13,7 @@
 #include <setjmp.h>
 #include <pthread.h>
 #include <signal.h>
-#include "myqueue.h"
+#include "client_queue.h"
 
 #define BUFFER_SIZE 1024
 

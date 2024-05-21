@@ -15,8 +15,10 @@
 
 
 void check_argc(int argc);
+
 unsigned long long int cast_to_ulli_with_check(char *string);
-double cast_to_double_with_check(char* buf, jmp_buf msg_rev_loop) ;
+
+double cast_to_double_with_check(char *buf, jmp_buf msg_rev_loop);
 
 
 // ! no global variables must be used -> no idea how to handle signals without a global flag.
@@ -30,7 +32,7 @@ void sigint_handler(int sig) {
 
 // Function to handle receiving messages from the server
 void *listener_thread(void *arg) {
-    int sockfd = *(int *)arg;
+    int sockfd = *(int *) arg;
 
     while (1) {
         char buffer[1024];
@@ -59,7 +61,7 @@ int main(int argc, char *argv[]) {
     check_argc(argc);
 
     unsigned long long port = cast_to_ulli_with_check(argv[1]);
-    if(port < 1024 || port >65535){
+    if (port < 1024 || port > 65535) {
         printf("usage: ."__FILE__" < 1 port between 1024 - 65535 >\n");
         exit(EXIT_FAILURE);
     }
@@ -93,7 +95,7 @@ int main(int argc, char *argv[]) {
     //End
 
     //Region connect:
-    if (connect(sockfd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+    if (connect(sockfd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
         perror("Connection failed");
         goto cleanup1;
     }
@@ -126,10 +128,10 @@ int main(int argc, char *argv[]) {
      */
 
 
-    while(interrupted == 0){        // *: need to implement CTRL + C handling
+    while (interrupted == 0) {        // *: need to implement CTRL + C handling
         //char buffer_from_server[1024] = {0};
         char buffer_input[1024] = {0};
-        if(fgets(buffer_input, sizeof(buffer_input) - sizeof(char), stdin))    // * terminates input with \0
+        if (fgets(buffer_input, sizeof(buffer_input) - sizeof(char), stdin))    // * terminates input with \0
         {
             if (ferror(stdin)) {
                 fprintf(stderr, "Error reading input: %s\n", strerror(errno));
@@ -140,7 +142,7 @@ int main(int argc, char *argv[]) {
 
         //fprintf(stderr, "buffer_input = %s", buffer_input);
 
-        if(strcmp(buffer_input, "/quit\n") == 0){
+        if (strcmp(buffer_input, "/quit\n") == 0) {
             goto cleanup2;
         }
 
@@ -148,7 +150,7 @@ int main(int argc, char *argv[]) {
 
         // * replace \n with \0 in char buffer[]
         //buffer_input[strcspn(buffer_input, "\n")] = '\0';
-        if(strcmp(buffer_input, "/shutdown\n") == 0 ){
+        if (strcmp(buffer_input, "/shutdown\n") == 0) {
             goto cleanup2;
         }
 
@@ -192,7 +194,7 @@ unsigned long long int cast_to_ulli_with_check(char *string) {
     //check conversion:
     if ((*end != '\0') || (string == end)) {       //conversion interrupted || no conversion happened
         fprintf(stderr, "Conversion of argument ended with error.\n");
-        if(errno != 0){
+        if (errno != 0) {
             perror("StrToULL");
         }
         exit(EXIT_FAILURE);

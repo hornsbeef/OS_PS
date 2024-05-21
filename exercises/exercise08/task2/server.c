@@ -15,8 +15,10 @@
 
 
 void check_argc(int argc);
+
 unsigned long long int cast_to_ulli_with_check(char *string);
-double cast_to_double_with_check(char* buf, jmp_buf msg_rev_loop) ;
+
+double cast_to_double_with_check(char *buf, jmp_buf msg_rev_loop);
 
 
 // ! no global variables must be used -> no idea how to handle signals without a global flag.
@@ -29,7 +31,7 @@ int main(int argc, char *argv[]) {
     check_argc(argc);
 
     unsigned long long port = cast_to_ulli_with_check(argv[1]);
-    if(port < 1024 || port >65535){
+    if (port < 1024 || port > 65535) {
         printf("usage: ."__FILE__" < 1 port between 1024 - 65535 >\n");
         exit(EXIT_FAILURE);
     }
@@ -64,7 +66,7 @@ int main(int argc, char *argv[]) {
 
 
     //bind is for server; //connect is for client
-    if(bind(sockfd, (const struct sockaddr*) &addr, sizeof(addr) ) != 0 ){
+    if (bind(sockfd, (const struct sockaddr *) &addr, sizeof(addr)) != 0) {
         perror("Bind");
         return_param = EXIT_FAILURE;
         goto cleanup1;
@@ -103,20 +105,21 @@ int main(int argc, char *argv[]) {
         char buffer[1024];
         jmp_buf msg_rec_loop;
 
-        if(setjmp(msg_rec_loop) == 1){
+        if (setjmp(msg_rec_loop) == 1) {
             dprintf(conn_sockfd, "%s is not a valid amount.\n", buffer);
         }
 
-        while(true){        // * continuously receiving msg
+        while (true) {        // * continuously receiving msg
             memset(buffer, '\0', sizeof(*buffer));
             errno = 0;
             ssize_t bytes_received = recv(conn_sockfd, buffer, sizeof(buffer), 0);
-            if(bytes_received == -1){
+            if (bytes_received == -1) {
                 perror("Recv");
                 return_param = EXIT_FAILURE;
                 goto cleanup2;
             }
-            if(bytes_received == 0){    // * When a stream socket peer has performed an orderly shutdown, the return value will be 0 (the traditional "end-of-file" return).
+            if (bytes_received ==
+                0) {    // * When a stream socket peer has performed an orderly shutdown, the return value will be 0 (the traditional "end-of-file" return).
                 printf("Connection closed by client.\n");
                 printf("Waiting for new connection...\n");
                 // * could reset total_donations to 0 here, no idea if I should.
@@ -125,7 +128,7 @@ int main(int argc, char *argv[]) {
 
             // * replace \n with \0 in char buffer[]
             buffer[strcspn(buffer, "\n")] = '\0';
-            if(strcmp(buffer, "/shutdown") == 0){
+            if (strcmp(buffer, "/shutdown") == 0) {
                 printf("Shutting down.\n"
                        "Closing connection ...\n");
                 goto cleanup2;
@@ -144,11 +147,11 @@ int main(int argc, char *argv[]) {
     //End
 
     //Region cleanup
-cleanup2:
+    cleanup2:
     close(conn_sockfd);
     printf("Connection closed.\n");
 
-cleanup1:
+    cleanup1:
     close(sockfd);
     exit(return_param);
 
@@ -173,7 +176,7 @@ unsigned long long int cast_to_ulli_with_check(char *string) {
     //check conversion:
     if ((*end != '\0') || (string == end)) {       //conversion interrupted || no conversion happened
         fprintf(stderr, "Conversion of argument ended with error.\n");
-        if(errno != 0){
+        if (errno != 0) {
             perror("StrToULL");
         }
         exit(EXIT_FAILURE);
@@ -185,7 +188,8 @@ unsigned long long int cast_to_ulli_with_check(char *string) {
     }
     return operand;
 }
-double cast_to_double_with_check(char* buf, jmp_buf msg_rec_loop) {
+
+double cast_to_double_with_check(char *buf, jmp_buf msg_rec_loop) {
 
     //Region another validity check
     char input_checker[1024];
@@ -197,10 +201,10 @@ double cast_to_double_with_check(char* buf, jmp_buf msg_rec_loop) {
     //}
     memcpy(input_checker, buf, sizeof(*buf));
     int i = 0;
-    while(buf[i] != '.'){
+    while (buf[i] != '.') {
         i++;
         // * check that it does not run out of bounds
-        if(i>= 1021){
+        if (i >= 1021) {
             goto nodotinmsg;
         }
     }
@@ -208,7 +212,7 @@ double cast_to_double_with_check(char* buf, jmp_buf msg_rec_loop) {
     //testing
     //fprintf(stderr, "buf[i] = %c", buf[i]);
 
-    if(isdigit(buf[i])){
+    if (isdigit(buf[i])) {
         //fprintf(stderr, "Has more than 2 Decimal places !!! ");
         //fprintf(stderr, "3rd Decimal place is %c\n", buf[i]);
         longjmp(msg_rec_loop, 1);
