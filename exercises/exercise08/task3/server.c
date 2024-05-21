@@ -287,12 +287,6 @@ void* request_handler(void* arg){
             pthread_error_funct(pthread_cond_wait(&threadStruct_PTR->cond_data_pushed_to_queue, threadStruct_PTR->mutex_queue_PTR));
             //fprintf(stderr, "Wakes up from pthread_cond_wait\n");
         }
-        //fprintf(stderr, "After queue_empty_check\n");
-
-        //if((myqueue_is_empty(&threadStruct_PTR->queue))){
-        //    pthread_mutex_unlock(threadStruct_PTR->mutex_queue_PTR);
-        //    continue;
-        //}
 
         conn_sockfd = myqueue_pop(&threadStruct_PTR->queue);
         //fprintf(stderr, "poped conn_sockfd from queue\n");
@@ -300,7 +294,7 @@ void* request_handler(void* arg){
 
         if (conn_sockfd == -1) // * this is poison value
         {
-            pthread_exit(NULL); // ? maybe return something useful?
+            pthread_exit(NULL);
         }
 
         char buffer[BUFFER_SIZE];
@@ -325,7 +319,7 @@ void* request_handler(void* arg){
                               "Content-Length: %d\r\n\r\n"
                               "<html><body><h1>Welcome to my web server!</h1></body></html>",
                     get_length);
-
+            usleep(100000); // sleep for 100 milliseconds
             send(conn_sockfd, response, strlen(response), 0);
         }
 
@@ -369,6 +363,7 @@ void* request_handler(void* arg){
                               "Content-Length: %d\r\n\r\n"
                               "Thank you very much for donating $%.6f The balance is now $%.6f.\n",
                     length, amount, balance);
+            usleep(100000); // sleep for 100 milliseconds
             send(conn_sockfd, response, strlen(response), 0);
         }
 
@@ -386,6 +381,7 @@ void* request_handler(void* arg){
                               "Content-Length: %d\r\n\r\n"
                               "Server shutting down...\n",
                     length);
+            usleep(100000); // sleep for 100 milliseconds
             send(conn_sockfd, response, strlen(response), 0);
 
 
@@ -402,6 +398,8 @@ void* request_handler(void* arg){
                               "Content-Type: text/plain\r\n"
                               "Content-Length: 15\r\n\r\n"
                               "Not Implemented";
+
+            usleep(100000); // sleep for 100 milliseconds
             send(conn_sockfd, response, strlen(response), 0);
         }
 
