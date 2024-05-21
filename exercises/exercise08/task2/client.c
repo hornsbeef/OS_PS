@@ -79,12 +79,16 @@ int main(int argc, char *argv[]) {
         goto cleanup1;
     }
 
-    const struct sockaddr_in addr = {       //posted struct did NOT work
-            .sin_family = AF_INET,
-            //.sin_addr = htonl(INADDR_ANY),
-            .sin_addr = htonl(INADDR_LOOPBACK), // on client
-            .sin_port = htons(port),
-    };
+    //const struct sockaddr_in addr = {       //posted struct did NOT work
+    //        .sin_family = AF_INET,
+    //        //.sin_addr = htonl(INADDR_ANY),
+    //        .sin_addr = htonl(INADDR_LOOPBACK), // on client
+    //        .sin_port = htons(port),
+    //};
+    struct sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    addr.sin_port = htons(port);
 
     //End
 
