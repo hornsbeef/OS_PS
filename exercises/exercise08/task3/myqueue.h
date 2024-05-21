@@ -25,8 +25,15 @@ static bool myqueue_is_empty(myqueue* q) {
 
 static void myqueue_push(myqueue* q, int value) {
 	struct myqueue_entry* entry = malloc(sizeof(struct myqueue_entry));
+    if(entry == NULL){
+        fprintf(stderr, "Malloc in myqueue_push FAILED");
+    }
 	entry->value = value;
+	//STAILQ_INSERT_TAIL(q, entry, entries);
 	STAILQ_INSERT_TAIL(q, entry, entries);
+    if(myqueue_is_empty(q)){
+        fprintf(stderr, "IN PUSH: QUEUE EMPTY EVEN AFTER PUSH\n");
+    }
 }
 
 static int myqueue_pop(myqueue* q) {

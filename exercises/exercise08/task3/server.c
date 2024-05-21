@@ -49,10 +49,6 @@ typedef struct thread_struct{
 
 int main(int argc, char *argv[]) {
 
-
-
-
-
     //Region mutex
     pthread_mutex_t mutex_queue;
 
@@ -94,8 +90,11 @@ int main(int argc, char *argv[]) {
  * and then spawns a listener thread for accepting incoming connections:
  *  Each accepted connection is added to the client connection queue.
  */
-    myqueue queue;
-    myqueue_init(&queue);
+
+    thread_struct_t threadStruct;
+    //myqueue queue;
+    //threadStruct.queue = queue;       // ! this was one problem! I init'd the wrong queue!
+    myqueue_init(&threadStruct.queue);
 
     errno = 0;
     int sockfd = socket(PF_INET, SOCK_STREAM, 0);   //protocol: 0 for default for this , 6 for tcp
@@ -108,20 +107,34 @@ int main(int argc, char *argv[]) {
         perror("Setsockopt failed");
         goto cleanup1;
     }
-    const struct sockaddr_in addr = {       //posted struct did NOT work
-            .sin_family = AF_INET,
-            .sin_addr = htonl(INADDR_ANY),
-            //.sin_addr = htonl(INADDR_LOOPBACK),
-            .sin_port = htons(port),
-    };
+    //posted struct did NOT work
+    //const struct sockaddr_in addr = {
+    //        .sin_family = AF_INET,
+    //        .sin_addr = htonl(INADDR_ANY),
+    //        //.sin_addr = htonl(INADDR_LOOPBACK),
+    //        .sin_port = htons(port),
+    //};
+    /**
+     * server.c:112:36: warning: missing braces around initializer []8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wmissing-braces-Wmissing-braces]8;;]
+  112 |     const struct sockaddr_in addr ={
+      |                                    ^
+     */
+
+    struct sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    addr.sin_port = htons(port);
+
+
     if(bind(sockfd, (const struct sockaddr*) &addr, sizeof(addr) ) != 0 ){
         perror("Bind");
         return_param = EXIT_FAILURE;
         goto cleanup1;
     }
+    listen(sockfd, num_of_request_handlers);
 
-    thread_struct_t threadStruct;
-    threadStruct.queue = queue;
+    //thread_struct_t threadStruct;
+    //threadStruct.queue = queue;
     threadStruct.sockfd = sockfd;
     threadStruct.mutex_queue_PTR = &mutex_queue;
     threadStruct.total_donations = 0;
@@ -138,7 +151,7 @@ int main(int argc, char *argv[]) {
     //Region request-handler spawn
 
     //pthread_t request_handler_tid[num_of_request_handlers]; // * handled further up due to goto-problems
-    for(int i = 0 ; i< num_of_request_handlers; i++){
+    for(unsigned long long i = 0 ; i< num_of_request_handlers; i++){
         pthread_error_funct(pthread_create(&request_handler_tid[i], NULL, &request_handler, &threadStruct));
     }
 
@@ -151,7 +164,7 @@ int main(int argc, char *argv[]) {
     //Region poison value push -> wait for request handlers to finish
 
     pthread_error_funct(pthread_mutex_lock(threadStruct.mutex_queue_PTR));
-    for(int i = 0; i<num_of_request_handlers; i++){
+    for(unsigned long long i = 0; i<num_of_request_handlers; i++){
         myqueue_push(&threadStruct.queue, -1);
     }
     pthread_cond_broadcast(&threadStruct.cond_data_pushed_to_queue); // ! Check if works !
@@ -161,12 +174,12 @@ int main(int argc, char *argv[]) {
 
     //Region cleanup
 
-    cleanup2:
+    //cleanup2:
     pthread_mutex_destroy(threadStruct.mutex_queue_PTR);
     pthread_cond_destroy(&threadStruct.cond_data_pushed_to_queue);
 
-
     cleanup1:
+    printf("Shutting down.\n");
     close(sockfd);
     exit(return_param);
 
@@ -221,7 +234,7 @@ void pthread_error_funct(int pthread_returnValue) {
 
 void *listener_thread(void *arg) {
     thread_struct_t *threadStruct_PTR = (thread_struct_t *) arg;
-    listen(threadStruct_PTR->sockfd, threadStruct_PTR->num_of_request_handlers);
+
 
     int conn_sockfd;
     while (true) {
@@ -233,12 +246,15 @@ void *listener_thread(void *arg) {
             //goto cleanup2;
         }
 
-        fprintf(stderr, "Established connection!\n");
+        //fprintf(stderr, "In Listener Tread: Accept: Established connection!\n");
 
         pthread_error_funct(pthread_mutex_lock(threadStruct_PTR->mutex_queue_PTR));
         myqueue_push(&threadStruct_PTR->queue, conn_sockfd);
+        if(myqueue_is_empty(&threadStruct_PTR->queue)){
+            fprintf(stderr, "QUEUE EMPTY EVEN AFTER PUSH\n");
+        }
         pthread_cond_signal(&threadStruct_PTR->cond_data_pushed_to_queue);
-        fprintf(stderr, "Signaled the accept!\n");
+        //fprintf(stderr, "In Listener Tread: Signaled the accept!\n");
         pthread_mutex_unlock(threadStruct_PTR->mutex_queue_PTR);
 
     }
@@ -260,19 +276,18 @@ void* request_handler(void* arg){
      */
     thread_struct_t *threadStruct_PTR = (thread_struct_t *) arg;
 
-    fprintf(stderr, "in request handler\n");
+    //fprintf(stderr, "in request handler\n");
 
     while(true) {
         int conn_sockfd;
         pthread_error_funct(pthread_mutex_lock(threadStruct_PTR->mutex_queue_PTR));
 
-        //TODO: FIX NOT GETTING OUT OF THIS WHILE LOOP
         while ((myqueue_is_empty(&threadStruct_PTR->queue)) == true) {             //catch for spurious wakeup!
-            fprintf(stderr, "before cond_wait\n");
+            //fprintf(stderr, "before cond_wait\n");
             pthread_error_funct(pthread_cond_wait(&threadStruct_PTR->cond_data_pushed_to_queue, threadStruct_PTR->mutex_queue_PTR));
-            fprintf(stderr, "Wakes up from pthread_cond_wait\n");
+            //fprintf(stderr, "Wakes up from pthread_cond_wait\n");
         }
-        fprintf(stderr, "After queue_empty_check\n");
+        //fprintf(stderr, "After queue_empty_check\n");
 
         //if((myqueue_is_empty(&threadStruct_PTR->queue))){
         //    pthread_mutex_unlock(threadStruct_PTR->mutex_queue_PTR);
@@ -280,7 +295,7 @@ void* request_handler(void* arg){
         //}
 
         conn_sockfd = myqueue_pop(&threadStruct_PTR->queue);
-        fprintf(stderr, "poped conn_sockfd from queue");
+        //fprintf(stderr, "poped conn_sockfd from queue\n");
         pthread_mutex_unlock(threadStruct_PTR->mutex_queue_PTR);
 
         if (conn_sockfd == -1) // * this is poison value
@@ -295,54 +310,50 @@ void* request_handler(void* arg){
         sscanf(buffer, "%s %s", method, url);
 
 
+
+
+        //Region GET
         if(strcmp(method, "GET") == 0 && strcmp(url, "/") == 0) {
-            char response[] = "HTTP/1.1 200 OK\r\n"
+
+            char get_response_body[200];
+            int get_length = sprintf(get_response_body, "<html><body><h1>Welcome to my web server!</h1></body></html>");
+
+            char response[BUFFER_SIZE];
+            sprintf(response, "HTTP/1.1 200 OK\r\n"
                               "Content-Type: text/html\r\n"
-                              "Content-Length: 46\r\n\r\n"
-                              "<html><body><h1>Welcome to my web server!</h1></body></html>";
+                              //"Content-Type: text/plain\r\n"
+                              "Content-Length: %d\r\n\r\n"
+                              "<html><body><h1>Welcome to my web server!</h1></body></html>",
+                    get_length);
+
             send(conn_sockfd, response, strlen(response), 0);
         }
 
+        //Region POST /donate
         else if(strcmp(method, "POST") == 0 && strcmp(url, "/donate") == 0) {
 
-            //char amountBuffer[100];
-            //recv(conn_sockfd, amountBuffer, 100, 0);
-            //double amount = atof(amountBuffer);
-            //balance += amount;
+            char* beforecontentLength = strstr(buffer, "Content-Length: ");
+            char* afterContentLength = beforecontentLength + strlen("Content-Length: ");
 
-            int new_line_counter = 0;
-            int bytes = 0;
-            while(new_line_counter <2) {
-                if(buffer[bytes] == '\r' && buffer[bytes +1] == '\n'){
-                    bytes+=2;
-                    new_line_counter++;
-                    continue;
-                }
-                bytes++;
-            }
-            char content_length[10];
-            sscanf(buffer+bytes, "Content-Length: %s", content_length);
+            char contentLength[10];
+            sscanf(afterContentLength, "%s", contentLength);
+            //fprintf(stderr, "Content Length: %s\n", contentLength);
+            unsigned long long contentLengthNumber = cast_to_ulli_with_check(contentLength);
 
-            unsigned long long content_length_num = cast_to_ulli_with_check(content_length);
+            //fprintf(stderr, "%llu\n", contentLengthNumber);
 
+            char content[contentLengthNumber +1 ];
+            content[contentLengthNumber] = '\0';
 
-            int second_new_line_counter = 0;
+            char* contentBody = strstr(buffer, "\r\n\r\n");
+            sscanf(contentBody, "%s", content);
 
-            while(second_new_line_counter < 2){
-                if(buffer[bytes] == '\r' && buffer[bytes +1] == '\n'){
-                    bytes+=2;
-                    second_new_line_counter++;
-                    continue;
-                }
-                bytes++;
-            }
+            //fprintf(stderr, "%s", content);
 
-            char content[content_length_num];
-            content[content_length_num] = '\0';
-
-            sscanf(buffer+bytes, "%s", content);
 
             double amount = cast_to_double_with_check(content);
+
+
             pthread_error_funct(pthread_mutex_lock(threadStruct_PTR->mutex_queue_PTR));
             threadStruct_PTR->total_donations += amount;
             double balance = threadStruct_PTR->total_donations;
@@ -350,30 +361,46 @@ void* request_handler(void* arg){
 
             //char response[100];
             char response_body[200];
-            int length = sprintf(response_body, "Thank you very much for donating $%.6f The balance is now $%.6f.", amount, balance);
-
+            int length = sprintf(response_body, "Thank you very much for donating $%.6f The balance is now $%.6f.\n", amount, balance);
 
             char response[BUFFER_SIZE];
             sprintf(response, "HTTP/1.1 200 OK\r\n"
                               "Content-Type: text/plain\r\n"
                               "Content-Length: %d\r\n\r\n"
-                              "Thank you very much for donating $%.6f The balance is now $%.6f.",
+                              "Thank you very much for donating $%.6f The balance is now $%.6f.\n",
                     length, amount, balance);
             send(conn_sockfd, response, strlen(response), 0);
         }
 
+        //Region POST /shutdown
         else if(strcmp(method, "POST") == 0 && strcmp(url, "/shutdown") == 0) {
             //pthread_exit(NULL);
-            //TODO: kill the LISTENER thread with e.g. pthread_cancel()
+            // kill the LISTENER thread with e.g. pthread_cancel()
             //this causes the server (that waits for the listener thread) -> to push num_request_handler poisen values into the queue
+            char response_body[200];
+            int length = sprintf(response_body, "Server shutting down...\n");
+
+            char response[BUFFER_SIZE];
+            sprintf(response, "HTTP/1.1 200 OK\r\n"
+                              "Content-Type: text/plain\r\n"
+                              "Content-Length: %d\r\n\r\n"
+                              "Server shutting down...\n",
+                    length);
+            send(conn_sockfd, response, strlen(response), 0);
+
+
+
+
+
             pthread_cancel(threadStruct_PTR->listener_tid);
             //accept() is a cancellation point
         }
 
+        //Region Else
         else {
             char response[] = "HTTP/1.1 501 Not Implemented\r\n"
                               "Content-Type: text/plain\r\n"
-                              "Content-Length: 23\r\n\r\n"
+                              "Content-Length: 15\r\n\r\n"
                               "Not Implemented";
             send(conn_sockfd, response, strlen(response), 0);
         }
