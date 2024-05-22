@@ -102,6 +102,7 @@ int main(int argc, char *argv[]) {
         perror("Error creating socket");
         return EXIT_FAILURE;
     }
+    // * safe to Pieces!
     int opt = 1; // * set SO_REUSEADDR to value of opt
     if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
         perror("Setsockopt failed");
