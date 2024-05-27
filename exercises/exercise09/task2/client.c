@@ -74,6 +74,7 @@ int main(int argc, char *argv[]) {
     }
 
     char* username = argv[2];
+    unsigned long username_len = strlen(username);
 fprintf(stderr, "Username = %s\n", username);
 
 
@@ -113,8 +114,12 @@ fprintf(stderr, "Username = %s\n", username);
         goto cleanup1;
     }
     //sends username as first message:
-    send(sockfd, username, strlen(username), 0);    // * 0 means no special flags are set
-
+    ssize_t bytes_sent = send(sockfd, username, strlen(username), 0);    // * 0 means no special flags are set
+    if(bytes_sent == -1){
+        perror("Send");
+        fprintf(stderr, "Error from send().\n"
+                        "Continuing execution, retrying send() with different value on next entry.\n ");
+    }
     //End
 
     //Region signal handler
@@ -159,12 +164,54 @@ fprintf(stderr, "Username = %s\n", username);
 //fprintf(stderr, "buffer_input = %s", buffer_input);
 
         if (strcmp(buffer_input, "/shutdown\n") == 0) {
-            send(sockfd, buffer_input, strlen(buffer_input), 0);    // * 0 means no special flags are set
+
+/*
+            //unsigned long disconnect_message_len = username_len + sizeof(" disconnected.\n") + 1;  //TODO: check if  + 1 for null terminator is needed!
+            char discon[] = " disconnected.\n";
+            unsigned long disconnect_message_len = username_len + sizeof(discon);
+
+fprintf(stderr, "message length: %lu\n", disconnect_message_len);
+
+            char disconnect_message[disconnect_message_len];
+            memset(disconnect_message, '\0', sizeof(disconnect_message));
+            //strcpy(disconnect_message, username);
+            //strcat(disconnect_message, discon); //to concatenate " disconnected."
+            //username disconnected.\n\0
+            / ** The  strcat() function appends the src string to the dest string, over‐
+            writing the terminating null byte ('\0') at the end of dest,  and  then
+            adds  a  terminating  null  byte. * /
+            sprintf(disconnect_message, "%s%s", username, discon);
+fprintf(stderr, "Disconnect_message: <%s>\n", disconnect_message);
+
+
+            bytes_sent = send(sockfd, disconnect_message, strlen(disconnect_message), 0);    // * 0 means no special flags are set
+            if(bytes_sent == -1){
+                perror("Send");
+                fprintf(stderr, "Error from send().\n"
+                                "Continuing execution, retrying send() with different value on next entry.\n ");
+            }
+*/
+            bytes_sent = send(sockfd, buffer_input, strlen(buffer_input), 0);
+            if(bytes_sent == -1){
+                perror("Send");
+                fprintf(stderr, "Error from send().\n"
+                                "Continuing execution, retrying send() with different value on next entry.\n ");
+            }
             goto cleanup2;
         }
 
-        send(sockfd, buffer_input, strlen(buffer_input), 0);    // * 0 means no special flags are set
+        unsigned long message_len = username_len + sizeof(": ") + sizeof(buffer_input) + 1;  // + 1 for null terminator
+        char message[message_len];
+        strcpy(message, username);
+        strcat(message, ": ");
+        strcat(message, buffer_input);
 
+        bytes_sent = send(sockfd, message, strlen(message), 0);    // * 0 means no special flags are set
+        if(bytes_sent == -1){
+            perror("Send");
+            fprintf(stderr, "Error from send().\n"
+                            "Continuing execution, retrying send() with different value on next entry.\n ");
+        }
         // * replace \n with \0 in char buffer[]
         //buffer_input[strcspn(buffer_input, "\n")] = '\0';
 

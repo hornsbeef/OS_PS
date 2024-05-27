@@ -13,6 +13,7 @@
 #include <pthread.h>
 #include <signal.h>
 #include <stdbool.h>
+#include <stdatomic.h>
 //#include "client_queue.h"
 
 #define MAX_USERNAME_LEN 256
@@ -46,6 +47,7 @@ typedef struct {
     void* thread_struct_t_PTR;
     //pthread_t listener_thread_id;
     pthread_t client_tid;
+    int client_number;      //client number used for the socket_of_clients[]
 } client_t;
 
 typedef struct thread_struct{
@@ -55,8 +57,10 @@ typedef struct thread_struct{
     int numberOfAdmins;
     char** admin_username_array;
     client_t clients[MAX_CLIENTS];
-    sig_atomic_t num_clients;        // Number of currently connected clients
+    sig_atomic_t num_clients;        // Number of currently connected clients -> is needed for disconnection message
     int max_num_clients;
+    //_Atomic(int) socket_of_clients[MAX_CLIENTS];  // * test if this works!
+    int socket_of_clients[MAX_CLIENTS];
 }thread_struct_t;
 
 
@@ -164,13 +168,13 @@ int main(int argc, char *argv[]) {
     pthread_t listener_tid = threadStruct.listener_tid;
     pthread_mutex_unlock(threadStruct.mutex_queue_PTR);
 
-
+//Region Join Listener Thread
 //fprintf(stderr, "Test before pthread_join(LISTENER)");
-
     pthread_error_funct(pthread_join(listener_tid, NULL));
-
 //fprintf(stderr, "Listener-Thread ended. \n"); //not reached without pthread_cancel!
+//End
 
+//Region: get max_connected_clients -> join all clients!
     // MUST be done after!!! the listener thread is killed, because is only changed in listener thread!!!!
     pthread_error_funct(pthread_mutex_lock(threadStruct.mutex_queue_PTR));
     int max_connected_clients = threadStruct.max_num_clients;
@@ -178,15 +182,20 @@ int main(int argc, char *argv[]) {
 
 //fprintf(stderr, "MAX CONNECTD CLIENTS: %d\n", max_connected_clients);
 
+//? needed to remove mutex here, to remove problem with ending server getting stuck after clients sent shutdown command.
+// *-> removing mutex here worked!
+// ? why did it get stuck in the first place?
+
     //pthread_join all client_threads
     for (int i = 0; i < max_connected_clients; ++i) {
 //fprintf(stderr, "JOIN_LOOP: i = %d\n", i);
-        pthread_error_funct(pthread_mutex_lock(threadStruct.mutex_queue_PTR));
+        //pthread_error_funct(pthread_mutex_lock(threadStruct.mutex_queue_PTR));
         pthread_t tid = threadStruct.clients[i].client_tid;
         pthread_error_funct(pthread_join(tid, NULL));
 //fprintf(stderr, "Joined number %d of %d\n", i, max_connected_clients );
-        pthread_mutex_unlock(threadStruct.mutex_queue_PTR);
+        //pthread_mutex_unlock(threadStruct.mutex_queue_PTR);
     }
+//End
 
 
     close(sockfd);
@@ -276,14 +285,18 @@ void *listener_thread(void *arg) {
 
         //setting all client-specific fields:
         pthread_error_funct(pthread_mutex_lock(threadStruct_PTR->mutex_queue_PTR));
-        //strncpy(threadStruct_PTR->clients[current_client_num].username, username, MAX_USERNAME_LEN - 1);
         strncpy(threadStruct_PTR->clients[current_client_num].username, username, MAX_USERNAME_LEN);
-//fprintf(stderr, "USERNAME: %s", username);
-//fprintf(stderr, "USERNAME_in_STRUCT: %s", threadStruct_PTR->clients[current_client_num].username);
 
         threadStruct_PTR->clients[current_client_num].is_admin = is_admin;
         threadStruct_PTR->clients[current_client_num].sockfd = conn_sockfd;
         threadStruct_PTR->clients[current_client_num].thread_struct_t_PTR = arg;
+        threadStruct_PTR->clients[current_client_num].client_number = current_client_num;
+
+        //atomic_store( (_Atomic(int)*) &threadStruct_PTR->socket_of_clients[current_client_num], conn_sockfd);
+        //_Atomic(int)* atomic_ptr = &threadStruct_PTR->socket_of_clients[current_client_num];
+        //atomic_store(atomic_ptr, conn_sockfd);
+        // ! it seems atomic_store does not want to work here -> back to mutexes
+        threadStruct_PTR->socket_of_clients[current_client_num] = conn_sockfd;
 
         threadStruct_PTR->num_clients++;    //is this even used?
         threadStruct_PTR->max_num_clients++;
@@ -326,14 +339,25 @@ void *client_thread(void *arg) {
     while (1) {
         ssize_t bytes_read = recv(client_sockfd, buffer, sizeof(buffer), 0);
         if (bytes_read <= 0) {
-            perror("Recv");
-            break; //
+            perror("Recv at client_thread"); //TODO: here error with /shutdown
+            fprintf(stderr, "with buffer: %s\n\n\n", buffer);
+
+            break; //this ends server
         }
 
         buffer[bytes_read - 1] = '\0';  // Remove newline character
 
         if (strcmp(buffer, "/shutdown") == 0) {
 //fprintf(stderr, "/shutdown received ");
+
+
+            //TODO: need to set the  threadStruct_PTR->socket_of_clients[THIS CURRENT CLIENT] to -1
+            //must do it in a Mutex...
+            //had problem with mutex here last time.
+
+            pthread_error_funct(pthread_mutex_lock(threadStruct_PTR->mutex_queue_PTR));
+            threadStruct_PTR->socket_of_clients[client->client_number] = -1;      // * to signal that this socket is not in use anymore. -> no send() there!
+            pthread_mutex_unlock(threadStruct_PTR->mutex_queue_PTR);
 
             close(client_sockfd);
 
@@ -354,9 +378,28 @@ void *client_thread(void *arg) {
             pthread_exit(NULL);
         }
 
-        //if NOT /shutdown: print message
-        printf("%s: %s\n", username, buffer);
+        //if NOT /shutdown:
+        //Region Brodcast to all OTHER clients:
+        // * exclude the sockfd that this client has!
+        // * Mutex should not be necessary, but lets try with it:
+        pthread_error_funct(pthread_mutex_lock(threadStruct_PTR->mutex_queue_PTR));
+        for (int i = 0; i < threadStruct_PTR->max_num_clients; ++i) {
+            int socket_to_broadcast_to = threadStruct_PTR->socket_of_clients[i];
+            if(socket_to_broadcast_to == client_sockfd || socket_to_broadcast_to == -1) // * NO send to these sockets
+            {
+                continue;
+            }
+            ssize_t bytes_sent = send(socket_to_broadcast_to, buffer, strlen(buffer), 0);
+            if(bytes_sent == -1){
+                perror("Send");
+                fprintf(stderr, "Error from send().\n"
+                                "Continuing execution, retrying send() with different value on next entry.\n ");
+            }
+        }
 
+        pthread_mutex_unlock(threadStruct_PTR->mutex_queue_PTR);
+
+        //End
     }
     return NULL;
 }
