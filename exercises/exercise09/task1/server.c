@@ -329,12 +329,15 @@ void *client_thread(void *arg) {
         if (strcmp(buffer, "/shutdown") == 0) {
 fprintf(stderr, "/shutdown received ");
 
-//TODO: not getting in here!!
-            pthread_mutex_lock(threadStruct_PTR->mutex_queue_PTR); //! is not getting in here!!!!
-fprintf(stderr, "Mutex locked after receiving shutdown");
-            threadStruct_PTR->num_clients--;        //TODO: check if used for anything
             close(client_sockfd);
-            pthread_mutex_unlock(threadStruct_PTR->mutex_queue_PTR);
+//TODO: not getting in here!!
+            //pthread_mutex_lock(threadStruct_PTR->mutex_queue_PTR); //! is not getting in here!!!!
+            //fprintf(stderr, "Mutex locked after receiving shutdown");
+            //threadStruct_PTR->num_clients--;        //TODO: check if used for anything
+            //pthread_mutex_unlock(threadStruct_PTR->mutex_queue_PTR);
+
+
+
 
             printf("%s disconnected.\n", username);
             fflush(stdout);
