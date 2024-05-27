@@ -165,7 +165,7 @@ fprintf(stderr, "Username = %s\n", username);
 
         if (strcmp(buffer_input, "/shutdown\n") == 0) {
 
-/*
+/* TODO: this creates problem, when trying to first send username disconnected. and then send /shutdown. WHY?
             //unsigned long disconnect_message_len = username_len + sizeof(" disconnected.\n") + 1;  //TODO: check if  + 1 for null terminator is needed!
             char discon[] = " disconnected.\n";
             unsigned long disconnect_message_len = username_len + sizeof(discon);
