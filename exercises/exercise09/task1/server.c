@@ -138,10 +138,11 @@ int main(int argc, char *argv[]) {
         close(sockfd);
         exit(EXIT_FAILURE);
     }
+
 //Region threadStruct
     thread_struct_t threadStruct;
     threadStruct.numberOfAdmins = numberOfAdmins;
-    threadStruct.admin_username_array = admin_username_array; // ! Unsure if correctly assigned
+    threadStruct.admin_username_array = admin_username_array; // ! Unsure if correctly assigned //->should be ok
 
     threadStruct.sockfd = sockfd;
     threadStruct.num_clients = 0;
@@ -157,9 +158,10 @@ int main(int argc, char *argv[]) {
         close(sockfd);
         exit(EXIT_FAILURE);
     }
+
+    //unnecessary but (should be safer)
     pthread_error_funct(pthread_mutex_lock(threadStruct.mutex_queue_PTR));
     pthread_t listener_tid = threadStruct.listener_tid;
-    int max_connected_clients = threadStruct.max_num_clients;
     pthread_mutex_unlock(threadStruct.mutex_queue_PTR);
 
 
@@ -167,13 +169,22 @@ fprintf(stderr, "Test before pthread_join(LISTENER)");
 
     pthread_error_funct(pthread_join(listener_tid, NULL));
 
-fprintf(stderr, "Listener-Thread ended. "); //not reached without pthread_cancel!
+fprintf(stderr, "Listener-Thread ended. \n"); //not reached without pthread_cancel!
+
+    // MUST be done after!!! the listener thread is killed, because is only changed in listener thread!!!!
+    pthread_error_funct(pthread_mutex_lock(threadStruct.mutex_queue_PTR));
+    int max_connected_clients = threadStruct.max_num_clients;
+    pthread_mutex_unlock(threadStruct.mutex_queue_PTR);
+
+fprintf(stderr, "MAX CONNECTD CLIENTS: %d\n", max_connected_clients);
 
     //pthread_join all client_threads
     for (int i = 0; i < max_connected_clients; ++i) {
+fprintf(stderr, "JOIN_LOOP: i = %d\n", i);
         pthread_error_funct(pthread_mutex_lock(threadStruct.mutex_queue_PTR));
         pthread_t tid = threadStruct.clients[i].client_tid;
         pthread_error_funct(pthread_join(tid, NULL));
+fprintf(stderr, "Joined number %d of %d\n", i, max_connected_clients );
         pthread_mutex_unlock(threadStruct.mutex_queue_PTR);
     }
 
@@ -272,7 +283,8 @@ void *listener_thread(void *arg) {
         threadStruct_PTR->num_clients++;    //is this even used?
         threadStruct_PTR->max_num_clients++;
 
-        pthread_create(&threadStruct_PTR->clients[current_client_num].client_tid, NULL, client_thread, &threadStruct_PTR->clients[current_client_num]);
+        //pthread_create(&((threadStruct_PTR->(clients[current_client_num])).client_tid), NULL, client_thread, &threadStruct_PTR->clients[current_client_num]);
+        pthread_create(&((threadStruct_PTR->clients[current_client_num]).client_tid), NULL, client_thread, &threadStruct_PTR->clients[current_client_num]);
         pthread_mutex_unlock(threadStruct_PTR->mutex_queue_PTR);
 
     }
@@ -315,12 +327,15 @@ void *client_thread(void *arg) {
         buffer[bytes_read - 1] = '\0';  // Remove newline character
 
         if (strcmp(buffer, "/shutdown") == 0) {
+fprintf(stderr, "/shutdown received ");
 
-            pthread_mutex_lock(threadStruct_PTR->mutex_queue_PTR);
-            threadStruct_PTR->num_clients--;
-
+//TODO: not getting in here!!
+            pthread_mutex_lock(threadStruct_PTR->mutex_queue_PTR); //! is not getting in here!!!!
+fprintf(stderr, "Mutex locked after receiving shutdown");
+            threadStruct_PTR->num_clients--;        //TODO: check if used for anything
             close(client_sockfd);
             pthread_mutex_unlock(threadStruct_PTR->mutex_queue_PTR);
+
             printf("%s disconnected.\n", username);
             fflush(stdout);
 
@@ -328,8 +343,8 @@ void *client_thread(void *arg) {
                 printf("Server is shutting down.\n");
                 printf("Waiting for %d clients to disconnect.\n", threadStruct_PTR->num_clients);
 
-                pthread_cancel(threadStruct_PTR->listener_tid); //TODO: this kills all client-threads as well!
-                interrupted = 1;
+                pthread_cancel(threadStruct_PTR->listener_tid);
+                //interrupted = 1;
             }
             pthread_exit(NULL);
         }
