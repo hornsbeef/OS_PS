@@ -55,7 +55,7 @@ typedef struct thread_struct{
     int numberOfAdmins;
     char** admin_username_array;
     client_t clients[MAX_CLIENTS];
-    int num_clients;        // ? Number of currently connected clients
+    sig_atomic_t num_clients;        // Number of currently connected clients
     int max_num_clients;
 }thread_struct_t;
 
@@ -165,26 +165,26 @@ int main(int argc, char *argv[]) {
     pthread_mutex_unlock(threadStruct.mutex_queue_PTR);
 
 
-fprintf(stderr, "Test before pthread_join(LISTENER)");
+//fprintf(stderr, "Test before pthread_join(LISTENER)");
 
     pthread_error_funct(pthread_join(listener_tid, NULL));
 
-fprintf(stderr, "Listener-Thread ended. \n"); //not reached without pthread_cancel!
+//fprintf(stderr, "Listener-Thread ended. \n"); //not reached without pthread_cancel!
 
     // MUST be done after!!! the listener thread is killed, because is only changed in listener thread!!!!
     pthread_error_funct(pthread_mutex_lock(threadStruct.mutex_queue_PTR));
     int max_connected_clients = threadStruct.max_num_clients;
     pthread_mutex_unlock(threadStruct.mutex_queue_PTR);
 
-fprintf(stderr, "MAX CONNECTD CLIENTS: %d\n", max_connected_clients);
+//fprintf(stderr, "MAX CONNECTD CLIENTS: %d\n", max_connected_clients);
 
     //pthread_join all client_threads
     for (int i = 0; i < max_connected_clients; ++i) {
-fprintf(stderr, "JOIN_LOOP: i = %d\n", i);
+//fprintf(stderr, "JOIN_LOOP: i = %d\n", i);
         pthread_error_funct(pthread_mutex_lock(threadStruct.mutex_queue_PTR));
         pthread_t tid = threadStruct.clients[i].client_tid;
         pthread_error_funct(pthread_join(tid, NULL));
-fprintf(stderr, "Joined number %d of %d\n", i, max_connected_clients );
+//fprintf(stderr, "Joined number %d of %d\n", i, max_connected_clients );
         pthread_mutex_unlock(threadStruct.mutex_queue_PTR);
     }
 
@@ -261,7 +261,8 @@ void *listener_thread(void *arg) {
             exit(EXIT_FAILURE);
         }
 
-        username[bytes_read - 1] = '\0';  // Remove newline character
+        //username[bytes_read - 1] = '\0';  // Remove newline character // ! replaced the wrong char
+        username[bytes_read] = '\0';  // Remove newline character
 
         int is_admin = 0;
         for (int i = 0; i < threadStruct_PTR->numberOfAdmins; i++) {
@@ -275,7 +276,11 @@ void *listener_thread(void *arg) {
 
         //setting all client-specific fields:
         pthread_error_funct(pthread_mutex_lock(threadStruct_PTR->mutex_queue_PTR));
-        strncpy(threadStruct_PTR->clients[current_client_num].username, username, MAX_USERNAME_LEN - 1);
+        //strncpy(threadStruct_PTR->clients[current_client_num].username, username, MAX_USERNAME_LEN - 1);
+        strncpy(threadStruct_PTR->clients[current_client_num].username, username, MAX_USERNAME_LEN);
+//fprintf(stderr, "USERNAME: %s", username);
+//fprintf(stderr, "USERNAME_in_STRUCT: %s", threadStruct_PTR->clients[current_client_num].username);
+
         threadStruct_PTR->clients[current_client_num].is_admin = is_admin;
         threadStruct_PTR->clients[current_client_num].sockfd = conn_sockfd;
         threadStruct_PTR->clients[current_client_num].thread_struct_t_PTR = arg;
@@ -308,7 +313,8 @@ void *client_thread(void *arg) {
 
     pthread_error_funct(pthread_mutex_lock(threadStruct_PTR->mutex_queue_PTR));
     bool isAdmin = (client->is_admin == 1) ? true : false;
-    strncpy(username, client->username, MAX_USERNAME_LEN - 1);  //works
+    //strncpy(username, client->username, MAX_USERNAME_LEN - 1);  //works   //gives compiler warning
+    strncpy(username, client->username, MAX_USERNAME_LEN);  //works
     int client_sockfd = client->sockfd;
     pthread_mutex_unlock(threadStruct_PTR->mutex_queue_PTR);
 
@@ -327,16 +333,12 @@ void *client_thread(void *arg) {
         buffer[bytes_read - 1] = '\0';  // Remove newline character
 
         if (strcmp(buffer, "/shutdown") == 0) {
-fprintf(stderr, "/shutdown received ");
+//fprintf(stderr, "/shutdown received ");
 
             close(client_sockfd);
-//TODO: not getting in here!!
-            //pthread_mutex_lock(threadStruct_PTR->mutex_queue_PTR); //! is not getting in here!!!!
-            //fprintf(stderr, "Mutex locked after receiving shutdown");
-            //threadStruct_PTR->num_clients--;        //TODO: check if used for anything
-            //pthread_mutex_unlock(threadStruct_PTR->mutex_queue_PTR);
 
-
+            // ! was not getting into a mutex placed around this...
+            threadStruct_PTR->num_clients--;    // * solved with an atomic variable! no mutex here
 
 
             printf("%s disconnected.\n", username);

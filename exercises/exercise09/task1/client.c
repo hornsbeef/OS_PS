@@ -1,155 +1,228 @@
+#define _POSIX_C_SOURCE 199309L
+#define _DEFAULT_SOURCE
+// #define _BSD_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
 #include <sys/socket.h>
+#include <errno.h>
 #include <netinet/in.h>
+#include <unistd.h>
+#include <stdbool.h>
+#include <string.h>
+#include <setjmp.h>
 #include <pthread.h>
+#include <signal.h>
 
-#define MAX_CLIENTS 10
-#define MAX_USERNAME_LEN 20
-#define MAX_MESSAGE_LEN 256
+#define MAX_USERNAME_LEN 256
 
-typedef struct {
-    int sockfd;
-    char username[MAX_USERNAME_LEN];
-    int is_admin;
-} client_t;
 
-client_t clients[MAX_CLIENTS];
-int num_clients = 0;
-char *admin_usernames[5];
-int num_admins = 0;
-int server_socket;
-pthread_t listener_thread;
+void check_argc(int argc);
 
-void *client_thread(void *arg) {
-    client_t *client = (client_t *)arg;
-    char buffer[MAX_MESSAGE_LEN];
+unsigned long long int cast_to_ulli_with_check(char *string);
 
-    while (1) {
-        ssize_t bytes_read = recv(client->sockfd, buffer, sizeof(buffer), 0);
-        if (bytes_read <= 0) {
-            break;
-        }
+double cast_to_double_with_check(char *buf, jmp_buf msg_rev_loop);
 
-        buffer[bytes_read - 1] = '\0';  // Remove newline character
-        printf("<%s>: %s\n", client->username, buffer);
-    }
 
-    for (int i = 0; i < num_clients; i++) {
-        if (clients[i].sockfd == client->sockfd) {
-            num_clients--;
-            memmove(&clients[i], &clients[i + 1], (num_clients - i) * sizeof(client_t));
-            break;
-        }
-    }
+// ! no global variables must be used -> no idea how to handle signals without a global flag.
+volatile sig_atomic_t interrupted = 0;
 
-    close(client->sockfd);
-    printf("%s has disconnected.\n", client->username);
-    return NULL;
+void sigint_handler(int sig) {
+    (void) sig;
+    interrupted = 1;
 }
 
-void *listener_thread_func(void *arg) {
+
+// Function to handle receiving messages from the server
+void *listener_thread(void *arg) {
+    int sockfd = *(int *) arg;
+
     while (1) {
-        struct sockaddr_in client_addr;
-        socklen_t client_addr_len = sizeof(client_addr);
-        int client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_addr_len);
+        char buffer[1024];
+        ssize_t bytes_received = recv(sockfd, buffer, sizeof(buffer), 0);
 
-        if (client_socket < 0) {
-            perror("accept");
-            continue;
+        if (bytes_received > 0) // * Print received message
+        {
+            buffer[bytes_received] = '\0';
+            printf("%s\n", buffer);
+        } else if (bytes_received == 0) // * Server has disconnected -> must clean up and exit client
+        {
+            printf("Server disconnected.\n");
+            interrupted = 1;        // * handle cleanup!
+            pthread_exit(NULL);
         }
-
-        char username[MAX_USERNAME_LEN];
-        ssize_t bytes_read = recv(client_socket, username, sizeof(username), 0);
-        if (bytes_read <= 0) {
-            close(client_socket);
-            continue;
+        else // * negative value of bytes received -> means -1 -> means error
+        {
+            perror("Error receiving data");
+            interrupted = 1;        // * handle cleanup!
+            pthread_exit(NULL);
         }
-
-        username[bytes_read - 1] = '\0';  // Remove newline character
-
-        int is_admin = 0;
-        for (int i = 0; i < num_admins; i++) {
-            if (strcmp(username, admin_usernames[i]) == 0) {
-                is_admin = 1;
-                break;
-            }
-        }
-
-        clients[num_clients].sockfd = client_socket;
-        strncpy(clients[num_clients].username, username, MAX_USERNAME_LEN - 1);
-        clients[num_clients].is_admin = is_admin;
-        num_clients++;
-
-        pthread_t client_thread_id;
-        pthread_create(&client_thread_id, NULL, client_thread, &clients[num_clients - 1]);
-        pthread_detach(client_thread_id);
-
-        printf("%s has connected. (Admin: %d)\n", username, is_admin);
     }
 
     return NULL;
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 3) {
-        fprintf(stderr, "Usage: %s <port> <admin_username1> [<admin_username2> ...]\n", argv[0]);
-        return 1;
+    //Region check args
+    int return_param = EXIT_SUCCESS;
+
+    check_argc(argc);
+
+    unsigned long long port = cast_to_ulli_with_check(argv[1]);
+    if (port < 1024 || port > 65535) {
+        printf("usage: ."__FILE__" < 1 port between 1024 - 65535 >\n");
+        exit(EXIT_FAILURE);
     }
 
-    int port = atoi(argv[1]);
-    for (int i = 2; i < argc; i++) {
-        admin_usernames[num_admins++] = argv[i];
+    char* username = argv[2];
+fprintf(stderr, "Username = %s\n", username);
+
+
+    //End
+
+    //Region socket init
+
+    errno = 0;
+    int sockfd = socket(PF_INET, SOCK_STREAM, 0);   //protocol: 0 for default for this , 6 for
+    if (sockfd < 0) {
+        perror("Error creating socket");
+        return EXIT_FAILURE;
     }
 
-    struct sockaddr_in server_addr;
-    server_socket = socket(AF_INET, SOCK_STREAM, 0);
-    if (server_socket < 0) {
-        perror("socket");
-        return 1;
+    int opt = 1; // * set SO_REUSEADDR to value of opt
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+        perror("Setsockopt failed");
+        goto cleanup1;
     }
 
-    memset(&server_addr, 0, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = INADDR_ANY;
-    server_addr.sin_port = htons(port);
+    //const struct sockaddr_in addr = {       //posted struct did NOT work
+    //        .sin_family = AF_INET,
+    //        //.sin_addr = htonl(INADDR_ANY),
+    //        .sin_addr = htonl(INADDR_LOOPBACK), // on client
+    //        .sin_port = htons(port),
+    //};
+    struct sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    addr.sin_port = htons(port);
 
-    if (bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-        perror("bind");
-        close(server_socket);
-        return 1;
+    //End
+
+    //Region connect:
+    if (connect(sockfd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
+        perror("Connection failed");
+        goto cleanup1;
     }
+    //sends username as first message:
+    send(sockfd, username, strlen(username), 0);    // * 0 means no special flags are set
 
-    if (listen(server_socket, MAX_CLIENTS) < 0) {
-        perror("listen");
-        close(server_socket);
-        return 1;
+    //End
+
+    //Region signal handler
+
+    // catch sigint to clean up
+    struct sigaction act = {0};
+    act.sa_handler = &sigint_handler;
+    sigfillset(&act.sa_mask);   //all signals blocked while in signal handler
+    sigaction(SIGTERM, &act, NULL);
+    sigaction(SIGINT, &act, NULL);
+
+    //End
+
+    //Region spawn thread:
+
+    pthread_t listener_tid;
+    if (pthread_create(&listener_tid, NULL, listener_thread, &sockfd) != 0) {
+        perror("Failed to create listener thread");
+        goto cleanup1;
     }
+    //End
 
-    pthread_create(&listener_thread, NULL, listener_thread_func, NULL);
+    //Region work:
+    /* *
+     * Note that you don't need to use ntohl() or ntohs() here because the recv() function
+     * automatically converts the received data from network byte order to host byte order.
+     */
 
-    while (1) {
-        char buffer[MAX_MESSAGE_LEN];
-        fgets(buffer, sizeof(buffer), stdin);
-        buffer[strcspn(buffer, "\n")] = '\0';  // Remove newline character
+    while (interrupted == 0) {        // *: need to implement CTRL + C handling
+        //char buffer_from_server[1024] = {0};
 
-        if (strcmp(buffer, "/shutdown") == 0) {
-            printf("Server is shutting down.\n");
-            pthread_cancel(listener_thread);
-            break;
+        char buffer_input[1024] = {0};
+        if (fgets(buffer_input, sizeof(buffer_input) - sizeof(char), stdin))    // * terminates input with \0
+        {
+            if (ferror(stdin)) {
+                fprintf(stderr, "Error reading input: %s\n", strerror(errno));
+            } else if (feof(stdin)) {
+                fprintf(stderr, "End of file reached\n");
+            }
         }
+
+//fprintf(stderr, "buffer_input = %s", buffer_input);
+
+        if (strcmp(buffer_input, "/shutdown\n") == 0) {
+            send(sockfd, buffer_input, strlen(buffer_input), 0);    // * 0 means no special flags are set
+            goto cleanup2;
+        }
+
+        send(sockfd, buffer_input, strlen(buffer_input), 0);    // * 0 means no special flags are set
+
+        // * replace \n with \0 in char buffer[]
+        //buffer_input[strcspn(buffer_input, "\n")] = '\0';
+
+
     }
 
-    pthread_join(listener_thread, NULL);
 
-    for (int i = 0; i < num_clients; i++) {
-        close(clients[i].sockfd);
-    }
 
-    close(server_socket);
-    printf("Server has shut down.\n");
-    return 0;
+
+
+    //Region cleanup
+    //cleanup2:
+    //close(conn_sockfd);
+    //printf("Connection closed.\n");
+
+    cleanup2:
+    pthread_cancel(listener_tid);
+    pthread_join(listener_tid, NULL);
+
+    cleanup1:
+    close(sockfd);
+    exit(return_param);
+
+    //End
+
+
 }
+
+//Region helperfunctions
+
+void check_argc(int argc) {
+    if (argc != 3) {
+        printf("usage: ."__FILE__" <port> <username>\n");
+        exit(EXIT_FAILURE);
+    }
+}
+
+unsigned long long int cast_to_ulli_with_check(char *string) {
+    errno = 0;
+    char *end = NULL;
+    unsigned long long operand = strtoull(string, &end, 10);
+    //check conversion:
+    if ((*end != '\0') || (string == end)) {       //conversion interrupted || no conversion happened
+        fprintf(stderr, "Conversion of argument ended with error.\n");
+        if (errno != 0) {
+            perror("StrToULL");
+        }
+        exit(EXIT_FAILURE);
+    }
+    if (errno != 0) {        //== ERANGE //as alternative to != 0
+        perror("Conversion of argument ended with error");
+        fprintf(stderr, "Please recheck usage!\n");
+        exit(EXIT_FAILURE);
+    }
+    return operand;
+}
+
+
+
+
+//End
