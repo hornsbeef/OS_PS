@@ -56,6 +56,7 @@ typedef struct thread_struct{
     char** admin_username_array;
     client_t clients[MAX_CLIENTS];
     int num_clients;        // ? Number of currently connected clients
+    int max_num_clients;
 }thread_struct_t;
 
 
@@ -99,16 +100,11 @@ int main(int argc, char *argv[]) {
 
     for(int i = 0; i<numberOfAdmins; i++){
         admin_username_array[i] = argv[i+2];
-        fprintf(stderr, "%s\n", admin_username_array[i]);
+        //fprintf(stderr, "%s\n", admin_username_array[i]);
     }
 
 
-    //pthread_t request_handler_tid[num_of_request_handlers];
-
     //End
-
-
-
 
     errno = 0;
     int sockfd = socket(PF_INET, SOCK_STREAM, 0);   //protocol: 0 for default for this , 6 for tcp
@@ -149,9 +145,12 @@ int main(int argc, char *argv[]) {
 
     threadStruct.sockfd = sockfd;
     threadStruct.num_clients = 0;
+    threadStruct.max_num_clients = 0;
     threadStruct.mutex_queue_PTR = &mutex_queue;
 //End
 
+    printf("Listening on port %llu\n", port);
+    fflush(stdout);
 
     if (pthread_create(&threadStruct.listener_tid, NULL, listener_thread, &threadStruct) != 0) {
         perror("Failed to create listener thread");
@@ -160,14 +159,26 @@ int main(int argc, char *argv[]) {
     }
     pthread_error_funct(pthread_mutex_lock(threadStruct.mutex_queue_PTR));
     pthread_t listener_tid = threadStruct.listener_tid;
+    int max_connected_clients = threadStruct.max_num_clients;
     pthread_mutex_unlock(threadStruct.mutex_queue_PTR);
 
-    pthread_join(listener_tid, NULL);
 
-    //TODO: pthread_join all client_threads
+fprintf(stderr, "Test before pthread_join(LISTENER)");
+
+    pthread_error_funct(pthread_join(listener_tid, NULL));
+
+fprintf(stderr, "Listener-Thread ended. "); //not reached without pthread_cancel!
+
+    //pthread_join all client_threads
+    for (int i = 0; i < max_connected_clients; ++i) {
+        pthread_error_funct(pthread_mutex_lock(threadStruct.mutex_queue_PTR));
+        pthread_t tid = threadStruct.clients[i].client_tid;
+        pthread_error_funct(pthread_join(tid, NULL));
+        pthread_mutex_unlock(threadStruct.mutex_queue_PTR);
+    }
 
 
-
+    close(sockfd);
     return return_param;
 }
 
@@ -214,10 +225,18 @@ void *listener_thread(void *arg) {
     thread_struct_t *threadStruct_PTR = (thread_struct_t *) arg;
     int conn_sockfd;
 
-    while (true) // * The listener thread should terminate once the /shutdown command has been received from an admin.
+    pthread_error_funct(pthread_mutex_lock(threadStruct_PTR->mutex_queue_PTR));
+    int listener_sockfd = threadStruct_PTR->sockfd;
+    pthread_mutex_unlock(threadStruct_PTR->mutex_queue_PTR);
+
+    // * The listener thread should terminate once the /shutdown command has been received from an admin.
+    //while (true)  //version with pthread_cancel
+
+    while (interrupted == 0) //version with "signal handler flag" -> gets stuck without pthread_cancel
     {
         errno = 0;
-        if ((conn_sockfd = accept(threadStruct_PTR->sockfd, NULL, NULL)) == -1) {
+        if ((conn_sockfd = accept(listener_sockfd, NULL, NULL)) == -1) // without pthread_cancel -> stuck here!
+        {
             perror("Accept");
             // ? how to handle failure - cleanup
             exit(EXIT_FAILURE);
@@ -230,6 +249,7 @@ void *listener_thread(void *arg) {
             //continue;
             exit(EXIT_FAILURE);
         }
+
         username[bytes_read - 1] = '\0';  // Remove newline character
 
         int is_admin = 0;
@@ -239,19 +259,32 @@ void *listener_thread(void *arg) {
                 break;
             }
         }
-        int current_client_num = threadStruct_PTR->num_clients;
+
+        int current_client_num = threadStruct_PTR->max_num_clients; //Cave: with only num_clients -> when one disconnects and then another connects -> overwrites
+
+        //setting all client-specific fields:
         pthread_error_funct(pthread_mutex_lock(threadStruct_PTR->mutex_queue_PTR));
         strncpy(threadStruct_PTR->clients[current_client_num].username, username, MAX_USERNAME_LEN - 1);
         threadStruct_PTR->clients[current_client_num].is_admin = is_admin;
         threadStruct_PTR->clients[current_client_num].sockfd = conn_sockfd;
         threadStruct_PTR->clients[current_client_num].thread_struct_t_PTR = arg;
 
-        threadStruct_PTR->num_clients++;
+        threadStruct_PTR->num_clients++;    //is this even used?
+        threadStruct_PTR->max_num_clients++;
 
         pthread_create(&threadStruct_PTR->clients[current_client_num].client_tid, NULL, client_thread, &threadStruct_PTR->clients[current_client_num]);
         pthread_mutex_unlock(threadStruct_PTR->mutex_queue_PTR);
 
     }
+
+    //TODO: with pthread_cancel:
+    // -> see pthread_cleanup_push!!
+
+
+
+    close(listener_sockfd);
+    pthread_exit(NULL);
+    fprintf(stderr, "should be unreachable");
 }
 
 void *client_thread(void *arg) {
@@ -259,12 +292,21 @@ void *client_thread(void *arg) {
     thread_struct_t* threadStruct_PTR = (thread_struct_t*) client->thread_struct_t_PTR;
 
     char buffer[MAX_MESSAGE_LEN];
-    bool isAdmin = (client->is_admin == 1) ? true : false;
     char username[MAX_USERNAME_LEN];
-    strncpy(username, client->username, MAX_USERNAME_LEN - 1);  //TODO: check if works
+
+    pthread_error_funct(pthread_mutex_lock(threadStruct_PTR->mutex_queue_PTR));
+    bool isAdmin = (client->is_admin == 1) ? true : false;
+    strncpy(username, client->username, MAX_USERNAME_LEN - 1);  //works
+    int client_sockfd = client->sockfd;
+    pthread_mutex_unlock(threadStruct_PTR->mutex_queue_PTR);
+
+
+    printf("%s connected\n", username);
+    fflush(stdout);
+
 
     while (1) {
-        ssize_t bytes_read = recv(client->sockfd, buffer, sizeof(buffer), 0);
+        ssize_t bytes_read = recv(client_sockfd, buffer, sizeof(buffer), 0);
         if (bytes_read <= 0) {
             perror("Recv");
             break; //
@@ -273,21 +315,27 @@ void *client_thread(void *arg) {
         buffer[bytes_read - 1] = '\0';  // Remove newline character
 
         if (strcmp(buffer, "/shutdown") == 0) {
+
             pthread_mutex_lock(threadStruct_PTR->mutex_queue_PTR);
             threadStruct_PTR->num_clients--;
+
+            close(client_sockfd);
+            pthread_mutex_unlock(threadStruct_PTR->mutex_queue_PTR);
+            printf("%s disconnected.\n", username);
+            fflush(stdout);
 
             if(isAdmin){
                 printf("Server is shutting down.\n");
                 printf("Waiting for %d clients to disconnect.\n", threadStruct_PTR->num_clients);
 
-                pthread_cancel(threadStruct_PTR->listener_tid);
+                pthread_cancel(threadStruct_PTR->listener_tid); //TODO: this kills all client-threads as well!
+                interrupted = 1;
             }
-
-            close(client->sockfd);
-            pthread_mutex_unlock(threadStruct_PTR->mutex_queue_PTR);
             pthread_exit(NULL);
         }
-        printf("<%s>: %s\n", client->username, buffer);
+
+        //if NOT /shutdown: print message
+        printf("%s: %s\n", username, buffer);
 
     }
     return NULL;
