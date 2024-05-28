@@ -338,20 +338,29 @@ void *client_thread(void *arg) {
     printf("%s connected\n", username);
     fflush(stdout);
 
+    int connection_lost_flag = 0;
+
     recv_loop:
     while (1) {
         char buffer[MAX_MESSAGE_LEN] = {0};
         ssize_t bytes_read = recv(client_sockfd, buffer, sizeof(buffer), 0);
-        if (bytes_read <= 0) {
+        //if (bytes_read <= 0) {
+        if (bytes_read == -1) // * this means error
+        {
             perror("Recv at client_thread"); //TODO: here error with /shutdown
             fprintf(stderr, "with buffer: %s\n\n\n", buffer);
 
             break; //this ends server
         }
-
-        if(client->timeout == true){
-            continue;
+        if (bytes_read == 0)    // * this means peer has performed  shutdown
+        {
+            //fprintf(stderr, "received 0 bytes\n");
+            connection_lost_flag = 1;
+            goto shutdown_procedure;
         }
+
+
+
 
         buffer[bytes_read - 1] = '\0';  // Remove newline character
 
@@ -362,7 +371,7 @@ void *client_thread(void *arg) {
             //TODO: need to set the  threadStruct_PTR->socket_of_clients[THIS CURRENT CLIENT] to -1
             //must do it in a Mutex...
             //had problem with mutex here last time.
-
+            shutdown_procedure:
             pthread_error_funct(pthread_mutex_lock(threadStruct_PTR->mutex_queue_PTR));
             threadStruct_PTR->socket_of_clients[client->client_number] = -1;      // * to signal that this socket is not in use anymore. -> no send() there!
             pthread_mutex_unlock(threadStruct_PTR->mutex_queue_PTR);
@@ -376,7 +385,7 @@ void *client_thread(void *arg) {
             printf("%s disconnected.\n", username);
             fflush(stdout);
 
-            if(isAdmin){
+            if(isAdmin && connection_lost_flag==0){
                 printf("Server is shutting down.\n");
                 printf("Waiting for %d clients to disconnect.\n", threadStruct_PTR->num_clients);
 
@@ -431,9 +440,13 @@ void *client_thread(void *arg) {
             pthread_mutex_unlock(threadStruct_PTR->mutex_queue_PTR);
 
             //continue; ->  breaks functionality
+            goto recv_loop;
         }
 //End
 
+        if(client->timeout == true){
+            continue;
+        }
         //if NOT /shutdown:
         //Region Brodcast to all OTHER clients:
         // * exclude the sockfd that this client has!
