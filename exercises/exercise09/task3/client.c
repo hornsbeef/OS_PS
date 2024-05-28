@@ -147,7 +147,7 @@ fprintf(stderr, "Username = %s\n", username);
      * Note that you don't need to use ntohl() or ntohs() here because the recv() function
      * automatically converts the received data from network byte order to host byte order.
      */
-
+    rec_loop:
     while (interrupted == 0) {        // *: need to implement CTRL + C handling
         //char buffer_from_server[1024] = {0};
 
@@ -163,6 +163,7 @@ fprintf(stderr, "Username = %s\n", username);
 
 //fprintf(stderr, "buffer_input = %s", buffer_input);
 
+//Region Shutdown_Client
         if (strcmp(buffer_input, "/shutdown\n") == 0) {
 
 /* TODO: this creates problem, when trying to first send username disconnected. and then send /shutdown. WHY?
@@ -199,7 +200,22 @@ fprintf(stderr, "Disconnect_message: <%s>\n", disconnect_message);
             }
             goto cleanup2;
         }
+//End
 
+//Region Timeout
+        if ((strncmp(buffer_input, "/timeout ", 9) == 0))   // * if it's /timeout ... just send the msg without adding name!
+        {
+            bytes_sent = send(sockfd, buffer_input, strlen(buffer_input), 0);
+            if(bytes_sent == -1){
+                perror("Send");
+                fprintf(stderr, "Error from send().\n"
+                                "Continuing execution, retrying send() with different value on next entry.\n ");
+            }
+            goto rec_loop;
+        }
+//End
+
+//Region Send Normal MSG
         unsigned long message_len = username_len + sizeof(": ") + sizeof(buffer_input) + 1;  // + 1 for null terminator
         char message[message_len];
         strcpy(message, username);
@@ -212,6 +228,9 @@ fprintf(stderr, "Disconnect_message: <%s>\n", disconnect_message);
             fprintf(stderr, "Error from send().\n"
                             "Continuing execution, retrying send() with different value on next entry.\n ");
         }
+//End
+
+
         // * replace \n with \0 in char buffer[]
         //buffer_input[strcspn(buffer_input, "\n")] = '\0';
 

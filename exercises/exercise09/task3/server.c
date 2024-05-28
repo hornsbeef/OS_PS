@@ -48,6 +48,7 @@ typedef struct {
     //pthread_t listener_thread_id;
     pthread_t client_tid;
     int client_number;      //client number used for the socket_of_clients[]
+    atomic_bool timeout;
 } client_t;
 
 typedef struct thread_struct{
@@ -291,6 +292,8 @@ void *listener_thread(void *arg) {
         threadStruct_PTR->clients[current_client_num].sockfd = conn_sockfd;
         threadStruct_PTR->clients[current_client_num].thread_struct_t_PTR = arg;
         threadStruct_PTR->clients[current_client_num].client_number = current_client_num;
+        threadStruct_PTR->clients[current_client_num].timeout = false;
+
 
         //atomic_store( (_Atomic(int)*) &threadStruct_PTR->socket_of_clients[current_client_num], conn_sockfd);
         //_Atomic(int)* atomic_ptr = &threadStruct_PTR->socket_of_clients[current_client_num];
@@ -321,8 +324,8 @@ void *client_thread(void *arg) {
     client_t* client = (client_t *)arg;
     thread_struct_t* threadStruct_PTR = (thread_struct_t*) client->thread_struct_t_PTR;
 
-    char buffer[MAX_MESSAGE_LEN];
-    char username[MAX_USERNAME_LEN];
+
+    char username[MAX_USERNAME_LEN] = {0};
 
     pthread_error_funct(pthread_mutex_lock(threadStruct_PTR->mutex_queue_PTR));
     bool isAdmin = (client->is_admin == 1) ? true : false;
@@ -335,8 +338,9 @@ void *client_thread(void *arg) {
     printf("%s connected\n", username);
     fflush(stdout);
 
-
+    recv_loop:
     while (1) {
+        char buffer[MAX_MESSAGE_LEN] = {0};
         ssize_t bytes_read = recv(client_sockfd, buffer, sizeof(buffer), 0);
         if (bytes_read <= 0) {
             perror("Recv at client_thread"); //TODO: here error with /shutdown
@@ -345,11 +349,15 @@ void *client_thread(void *arg) {
             break; //this ends server
         }
 
+        if(client->timeout == true){
+            continue;
+        }
+
         buffer[bytes_read - 1] = '\0';  // Remove newline character
 
+//Region Shutdown
         if (strcmp(buffer, "/shutdown") == 0) {
 //fprintf(stderr, "/shutdown received ");
-
 
             //TODO: need to set the  threadStruct_PTR->socket_of_clients[THIS CURRENT CLIENT] to -1
             //must do it in a Mutex...
@@ -377,20 +385,54 @@ void *client_thread(void *arg) {
             }
             pthread_exit(NULL);
         }
+//End
 
-        // Check if the input starts with "/timeout"
-        if (strncmp(buffer, "/timeout ", 9) == 0 && isAdmin) {
-            char username_to_timeout[256];
-            strcpy(username, buffer + 9);
+//Region Timeout
+        //go through all clients and check if username is there.
+            //if true-> get its sockfd
+                //send : "You have been timeouted by <admin>."
+                //set NEW client_timouted flag in client struct
+        //this must be checked every time when receiving msg from clients.
 
-            //todo: go through all clients and check if username is there.
-                //if true-> get its sockfd
-                    //send : "You have been timeouted by <admin>."
-                    //set NEW client_timouted flag in client struct
-                        //this must be checked every time when receiving msg from clients.
+        // Check if the input starts with "/timeout "
+        if ((strncmp(buffer, "/timeout ", 9) == 0) && isAdmin) {
+            //fprintf(stderr, "Received /timeout\n");
 
+            //create timeout_msg:
+            char timeout_msg[MAX_USERNAME_LEN + 30] = {0};
+            sprintf(timeout_msg, "You have been timeouted by %s.\n", username);
+            //fprintf(stderr, "Timeout_MSG:<%s>\n",timeout_msg);
+
+            //get Username to find, from buffer:
+            char username_to_timeout[256] = {0};
+            strcpy(username_to_timeout, buffer + 9);
+            //fprintf(stderr, "Username_to_timeout:<%s>\n", username_to_timeout);
+
+            //compare username_to_timeout against all usernames in array:
+            pthread_error_funct(pthread_mutex_lock(threadStruct_PTR->mutex_queue_PTR));
+            for (int i = 0; i < threadStruct_PTR->max_num_clients; ++i){
+                if(strcmp(threadStruct_PTR->clients[i].username, username_to_timeout) == 0){
+                    //fprintf(stderr, "Inside Username Comparison: %s vs %s",threadStruct_PTR->clients[i].username, username_to_timeout );
+
+                    //send timout_msg to user being timeout'd
+                    ssize_t bytes_sent = send(threadStruct_PTR->clients[i].sockfd, timeout_msg, strlen(timeout_msg), 0);
+                    if(bytes_sent == -1){
+                        perror("Send");
+                        fprintf(stderr, "Error from send().\n"
+                                        "Continuing execution, retrying send() with different value on next entry.\n ");
+                    }
+
+                    //set user being timeout'd - timeout_value to True:
+                    threadStruct_PTR->clients[i].timeout = true;
+                    break; //TODO: check if breaks functionality
+
+                }
+            }
+            pthread_mutex_unlock(threadStruct_PTR->mutex_queue_PTR);
+
+            //continue; ->  breaks functionality
         }
-
+//End
 
         //if NOT /shutdown:
         //Region Brodcast to all OTHER clients:
