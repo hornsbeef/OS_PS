@@ -444,6 +444,20 @@ void *client_thread(void *arg) {
         }
 //End
 
+//Region Timeout on NON Admin
+        if ((strncmp(buffer, "/timeout ", 9) == 0) && !isAdmin){
+            char error_msg[] = "You are not an Admin, so you cannot send timeouts.\n";
+            ssize_t bytes_sent = send(client_sockfd, error_msg, strlen(error_msg), 0);
+            if(bytes_sent == -1){
+                perror("Send");
+                fprintf(stderr, "Error from send().\n"
+                                "Continuing execution, retrying send() with different value on next entry.\n ");
+            }
+            goto recv_loop;
+        }
+
+//End
+
         if(client->timeout == true){
             continue;
         }
