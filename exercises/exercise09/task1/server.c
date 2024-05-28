@@ -184,11 +184,11 @@ int main(int argc, char *argv[]) {
     //pthread_join all client_threads
     for (int i = 0; i < max_connected_clients; ++i) {
 //fprintf(stderr, "JOIN_LOOP: i = %d\n", i);
-        pthread_error_funct(pthread_mutex_lock(threadStruct.mutex_queue_PTR));
+        //pthread_error_funct(pthread_mutex_lock(threadStruct.mutex_queue_PTR));
         pthread_t tid = threadStruct.clients[i].client_tid;
         pthread_error_funct(pthread_join(tid, NULL));
 //fprintf(stderr, "Joined number %d of %d\n", i, max_connected_clients );
-        pthread_mutex_unlock(threadStruct.mutex_queue_PTR);
+        //pthread_mutex_unlock(threadStruct.mutex_queue_PTR);
     }
 
 
@@ -313,8 +313,8 @@ void *client_thread(void *arg) {
     client_t *client = (client_t *) arg;
     thread_struct_t *threadStruct_PTR = (thread_struct_t *) client->thread_struct_t_PTR;
 
-    char buffer[MAX_MESSAGE_LEN];
-    char username[MAX_USERNAME_LEN];
+
+    char username[MAX_USERNAME_LEN] = {0};   // !new
 
     pthread_error_funct(pthread_mutex_lock(threadStruct_PTR->mutex_queue_PTR));
     bool isAdmin = (client->is_admin == 1) ? true : false;
@@ -327,19 +327,34 @@ void *client_thread(void *arg) {
     printf("%s connected\n", username);
     fflush(stdout);
 
+    int connection_lost_flag = 0;   // !new
+
 
     while (1) {
+        char buffer[MAX_MESSAGE_LEN] = {0}; // !new
         ssize_t bytes_read = recv(client_sockfd, buffer, sizeof(buffer), 0);
-        if (bytes_read <= 0) {
-            perror("Recv");
-            break; //
+        //if (bytes_read <= 0) {
+        if (bytes_read == -1) // * this means error
+        {
+            perror("Recv at client_thread"); //TODO: here error with /shutdown
+            fprintf(stderr, "with buffer: %s\n\n\n", buffer);
+
+            break; //this ends server
         }
+        if (bytes_read == 0)    // * this means peer has performed  shutdown
+        {
+            //fprintf(stderr, "received 0 bytes\n");
+            connection_lost_flag = 1;
+            goto shutdown_procedure;
+        }
+
 
         buffer[bytes_read - 1] = '\0';  // Remove newline character
 
+//Region Shutdown
         if (strcmp(buffer, "/shutdown") == 0) {
 //fprintf(stderr, "/shutdown received ");
-
+            shutdown_procedure:
             close(client_sockfd);
 
             // ! was not getting into a mutex placed around this...
@@ -349,7 +364,7 @@ void *client_thread(void *arg) {
             printf("%s disconnected.\n", username);
             fflush(stdout);
 
-            if (isAdmin) {
+            if (isAdmin && connection_lost_flag == 0) {
                 printf("Server is shutting down.\n");
                 printf("Waiting for %d clients to disconnect.\n", threadStruct_PTR->num_clients);
 
