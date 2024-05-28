@@ -21,12 +21,18 @@
 
 
 void check_argc(int argc);
+
 unsigned long long int cast_to_ulli_with_check(char *string);
+
 //double cast_to_double_with_check(char* buf, jmp_buf msg_rev_loop) ;
 void pthread_error_funct(int pthread_returnValue);
+
 void *listener_thread(void *arg);
-void* request_handler(void* arg);
-double cast_to_double_with_check(char* buf);
+
+void *request_handler(void *arg);
+
+double cast_to_double_with_check(char *buf);
+
 void *client_thread(void *arg);
 
 
@@ -43,24 +49,21 @@ typedef struct {
     int sockfd;
     char username[MAX_USERNAME_LEN];
     int is_admin;
-    void* thread_struct_t_PTR;
+    void *thread_struct_t_PTR;
     //pthread_t listener_thread_id;
     pthread_t client_tid;
 } client_t;
 
-typedef struct thread_struct{
+typedef struct thread_struct {
     int sockfd;
-    pthread_mutex_t* mutex_queue_PTR;
+    pthread_mutex_t *mutex_queue_PTR;
     pthread_t listener_tid;
     int numberOfAdmins;
-    char** admin_username_array;
+    char **admin_username_array;
     client_t clients[MAX_CLIENTS];
     sig_atomic_t num_clients;        // Number of currently connected clients
     int max_num_clients;
-}thread_struct_t;
-
-
-
+} thread_struct_t;
 
 
 int main(int argc, char *argv[]) {
@@ -96,10 +99,10 @@ int main(int argc, char *argv[]) {
     }
 
     int numberOfAdmins = argc - 2;
-    char* admin_username_array[numberOfAdmins];
+    char *admin_username_array[numberOfAdmins];
 
-    for(int i = 0; i<numberOfAdmins; i++){
-        admin_username_array[i] = argv[i+2];
+    for (int i = 0; i < numberOfAdmins; i++) {
+        admin_username_array[i] = argv[i + 2];
         //fprintf(stderr, "%s\n", admin_username_array[i]);
     }
 
@@ -126,14 +129,14 @@ int main(int argc, char *argv[]) {
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
     addr.sin_port = htons(port);
 
-    if(bind(sockfd, (const struct sockaddr*) &addr, sizeof(addr) ) != 0 ){
+    if (bind(sockfd, (const struct sockaddr *) &addr, sizeof(addr)) != 0) {
         perror("Bind");
         return_param = EXIT_FAILURE;
         close(sockfd);
         exit(return_param);
     }
 
-    if(listen(sockfd, 1) == -1){
+    if (listen(sockfd, 1) == -1) {
         perror("Listen");
         close(sockfd);
         exit(EXIT_FAILURE);
@@ -195,7 +198,7 @@ int main(int argc, char *argv[]) {
 
 //helper functs
 void check_argc(int argc) {
-    if (argc < 3 || argc >7) {
+    if (argc < 3 || argc > 7) {
         printf("usage: ."__FILE__" < 1 port >= 1024 and up to 5 admin names>");
         exit(EXIT_FAILURE);
     }
@@ -208,7 +211,7 @@ unsigned long long int cast_to_ulli_with_check(char *string) {
     //check conversion:
     if ((*end != '\0') || (string == end)) {       //conversion interrupted || no conversion happened
         fprintf(stderr, "Conversion of argument ended with error.\n");
-        if(errno != 0){
+        if (errno != 0) {
             perror("StrToULL");
         }
         exit(EXIT_FAILURE);
@@ -289,13 +292,15 @@ void *listener_thread(void *arg) {
         threadStruct_PTR->max_num_clients++;
 
         //pthread_create(&((threadStruct_PTR->(clients[current_client_num])).client_tid), NULL, client_thread, &threadStruct_PTR->clients[current_client_num]);
-        pthread_create(&((threadStruct_PTR->clients[current_client_num]).client_tid), NULL, client_thread, &threadStruct_PTR->clients[current_client_num]);
+        pthread_create(&((threadStruct_PTR->clients[current_client_num]).client_tid), NULL, client_thread,
+                       &threadStruct_PTR->clients[current_client_num]);
         pthread_mutex_unlock(threadStruct_PTR->mutex_queue_PTR);
 
     }
 
-    //TODO: with pthread_cancel:
-    // -> see pthread_cleanup_push!!
+    //maybe better cleanup with pthread_cancel:
+    // -> see pthread_cleanup_push
+    // ? will this help with Crtl + C not having perfect cleanup?
 
 
 
@@ -305,8 +310,8 @@ void *listener_thread(void *arg) {
 }
 
 void *client_thread(void *arg) {
-    client_t* client = (client_t *)arg;
-    thread_struct_t* threadStruct_PTR = (thread_struct_t*) client->thread_struct_t_PTR;
+    client_t *client = (client_t *) arg;
+    thread_struct_t *threadStruct_PTR = (thread_struct_t *) client->thread_struct_t_PTR;
 
     char buffer[MAX_MESSAGE_LEN];
     char username[MAX_USERNAME_LEN];
@@ -344,7 +349,7 @@ void *client_thread(void *arg) {
             printf("%s disconnected.\n", username);
             fflush(stdout);
 
-            if(isAdmin){
+            if (isAdmin) {
                 printf("Server is shutting down.\n");
                 printf("Waiting for %d clients to disconnect.\n", threadStruct_PTR->num_clients);
 

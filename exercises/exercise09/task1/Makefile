@@ -39,8 +39,8 @@ clean:
 #maybe not going to work for multi-file make!
 .PHONY: valgrind
 valgrind:
-	valgrind --tool=memcheck --leak-check=full --log-file="valgrind_"$(word 1, $(files_to_compile))".txt" --verbose --trace-children=yes ./$(word 1, $(files_to_compile)) $(program_args)
-	#valgrind --tool=memcheck --log-file="valgrind_"$(word 2, $(files_to_compile))".txt" --verbose --trace-children=yes ./$(word 2, $(files_to_compile)) $(program_args)
+	#valgrind --tool=memcheck --leak-check=full --log-file="valgrind_"$(word 1, $(files_to_compile))".txt" --verbose --leak-check=full --trace-children=yes ./$(word 1, $(files_to_compile)) $(program_args)
+	valgrind --tool=memcheck --log-file="valgrind_"$(word 2, $(files_to_compile))".txt" --verbose --leak-check=full --trace-children=yes ./$(word 2, $(files_to_compile)) $(program_args)
 
 .PHONY: time
 time:

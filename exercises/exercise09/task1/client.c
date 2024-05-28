@@ -49,8 +49,7 @@ void *listener_thread(void *arg) {
             printf("Server disconnected.\n");
             interrupted = 1;        // * handle cleanup!
             pthread_exit(NULL);
-        }
-        else // * negative value of bytes received -> means -1 -> means error
+        } else // * negative value of bytes received -> means -1 -> means error
         {
             perror("Error receiving data");
             interrupted = 1;        // * handle cleanup!
@@ -73,8 +72,8 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    char* username = argv[2];
-fprintf(stderr, "Username = %s\n", username);
+    char *username = argv[2];
+//fprintf(stderr, "Username = %s\n", username);
 
 
     //End

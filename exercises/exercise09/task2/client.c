@@ -49,8 +49,7 @@ void *listener_thread(void *arg) {
             printf("Server disconnected.\n");
             interrupted = 1;        // * handle cleanup!
             pthread_exit(NULL);
-        }
-        else // * negative value of bytes received -> means -1 -> means error
+        } else // * negative value of bytes received -> means -1 -> means error
         {
             perror("Error receiving data");
             interrupted = 1;        // * handle cleanup!
@@ -73,9 +72,9 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    char* username = argv[2];
+    char *username = argv[2];
     unsigned long username_len = strlen(username);
-fprintf(stderr, "Username = %s\n", username);
+//fprintf(stderr, "Username = %s\n", username);
 
 
     //End
@@ -115,7 +114,7 @@ fprintf(stderr, "Username = %s\n", username);
     }
     //sends username as first message:
     ssize_t bytes_sent = send(sockfd, username, strlen(username), 0);    // * 0 means no special flags are set
-    if(bytes_sent == -1){
+    if (bytes_sent == -1) {
         perror("Send");
         fprintf(stderr, "Error from send().\n"
                         "Continuing execution, retrying send() with different value on next entry.\n ");
@@ -192,7 +191,7 @@ fprintf(stderr, "Disconnect_message: <%s>\n", disconnect_message);
             }
 */
             bytes_sent = send(sockfd, buffer_input, strlen(buffer_input), 0);
-            if(bytes_sent == -1){
+            if (bytes_sent == -1) {
                 perror("Send");
                 fprintf(stderr, "Error from send().\n"
                                 "Continuing execution, retrying send() with different value on next entry.\n ");
@@ -207,7 +206,7 @@ fprintf(stderr, "Disconnect_message: <%s>\n", disconnect_message);
         strcat(message, buffer_input);
 
         bytes_sent = send(sockfd, message, strlen(message), 0);    // * 0 means no special flags are set
-        if(bytes_sent == -1){
+        if (bytes_sent == -1) {
             perror("Send");
             fprintf(stderr, "Error from send().\n"
                             "Continuing execution, retrying send() with different value on next entry.\n ");
