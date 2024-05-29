@@ -60,7 +60,7 @@ typedef struct thread_struct{
     client_t clients[MAX_CLIENTS];
     sig_atomic_t num_clients;        // Number of currently connected clients -> is needed for disconnection message
     int max_num_clients;
-    //_Atomic(int) socket_of_clients[MAX_CLIENTS];  // * test if this works!
+    //atomic_int socket_of_clients[MAX_CLIENTS];  // * test if this works!
     int socket_of_clients[MAX_CLIENTS];
 }thread_struct_t;
 
@@ -295,7 +295,7 @@ void *listener_thread(void *arg) {
         threadStruct_PTR->clients[current_client_num].timeout = false;
 
 
-        //atomic_store( (_Atomic(int)*) &threadStruct_PTR->socket_of_clients[current_client_num], conn_sockfd);
+        //atomic_store( &threadStruct_PTR->socket_of_clients[current_client_num], conn_sockfd);
         //_Atomic(int)* atomic_ptr = &threadStruct_PTR->socket_of_clients[current_client_num];
         //atomic_store(atomic_ptr, conn_sockfd);
         // ! it seems atomic_store does not want to work here -> back to mutexes
