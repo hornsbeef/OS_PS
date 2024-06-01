@@ -7,3 +7,6 @@ add_executable(task1_
         task1/task1.c
 )
 add_executable(tas2_myprogram task2/my_program.c)
+
+add_executable(task3_map_string task3/map_string.c
+        task3/ceasar_chipher.c)
