@@ -6,3 +6,4 @@ set(CMAKE_C_STANDARD 11)
 add_executable(task1_
         task1/task1.c
 )
+add_executable(tas2_myprogram task2/my_program.c)

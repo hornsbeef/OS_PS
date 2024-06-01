@@ -1,0 +1,174 @@
+
+
+Use nm to find the name of the function (its name will tell you the intended behavior).
+nm some_program
+000000000000038c r __abi_tag
+                 U atoi@GLIBC_2.2.5
+0000000000004010 B __bss_start
+0000000000004010 b completed.0
+                 w __cxa_finalize@GLIBC_2.2.5
+0000000000004000 D __data_start
+0000000000004000 W data_start
+00000000000010d0 t deregister_tm_clones
+0000000000001140 t __do_global_dtors_aux
+0000000000003da0 d __do_global_dtors_aux_fini_array_entry
+0000000000004008 D __dso_handle
+0000000000003da8 d _DYNAMIC
+0000000000004010 D _edata
+0000000000004018 B _end
+                 U fibonacci_of_integer
+0000000000001200 T _fini
+0000000000001180 t frame_dummy
+0000000000003d98 d __frame_dummy_init_array_entry
+00000000000020f8 r __FRAME_END__
+0000000000003fa8 d _GLOBAL_OFFSET_TABLE_
+                 w __gmon_start__
+000000000000201c r __GNU_EH_FRAME_HDR
+0000000000001000 T _init
+0000000000002000 R _IO_stdin_used
+                 w _ITM_deregisterTMCloneTable
+                 w _ITM_registerTMCloneTable
+                 U __libc_start_main@GLIBC_2.34
+0000000000001189 T main
+                 U printf@GLIBC_2.2.5
+0000000000001100 t register_tm_clones
+00000000000010a0 T _start
+0000000000004010 D __TMC_END__
+
+
+
+Is some_library.so the only shared library used by some_program?
+-> no
+ldd prints the shared objects (shared libraries) required by each
+       program or shared object specified on the command line.
+linux-vdso.so.1 (0x00007ffcc67d1000):
+
+    linux-vdso.so.1 is a special shared object injected by the kernel.
+    It does not exist on disk, so there is no path listed.
+    The address 0x00007ffcc67d1000 indicates where this shared object is loaded in memory.
+
+libsome_library.so => not found:
+
+    This line indicates that some_program is trying to use libsome_library.so,
+    but it cannot be found.
+    This could be because the library is missing or not installed on the system.
+
+libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f5bf458c000):
+
+    libc.so.6 is a standard library that provides the C standard library functionality.
+    The path /lib/x86_64-linux-gnu/libc.so.6 indicates where this library is located on the file system.
+    The address 0x00007f5bf458c000 indicates where this library is loaded in memory.
+
+/lib64/ld-linux-x86-64.so.2 (0x00007f5bf47d1000):
+
+    /lib64/ld-linux-x86-64.so.2 is the dynamic linker that loads the shared libraries.
+    The path indicates where this linker is located on the file system.
+    The address 0x00007f5bf47d1000 indicates where this linker is loaded in memory.
+
+
+
+-fPIC
+    If supported for the target machine, emit position-independent code,
+    suitable for dynamic linking and avoiding any limit on the size of the global offset table.
+    This option makes a difference on the m68k, m88k, and the Sparc.
+
+    Position-independent code requires special support, and therefore works only on certain machines.
+
+-shared
+
+    Produce a shared object which can then be linked with other objects to form an executable.
+    Not all systems support this option.
+    For predictable results, you must also specify the same set of options used for compilation
+    (-fpic, -fPIC, or model suboptions) when you specify this linker option.
+
+-static
+
+    On systems that support dynamic linking, this overrides -pie and
+    prevents linking with the shared libraries.
+    On other systems, this option has no effect.
+
+Compare the sizes of some_program and my_program — what do you find?
+ls -lh
+total 916K
+
+-rwxrwxr-x 1 user group 881K Jun  1 14:47 my_program
+-rw-rw-r-- 1 user group 1,3K Jun  1 14:40 my_program.c
+-rw-rw-r-- 1 user group 3,8K Jun  1 14:49 solution.txt
+-rw-rw-r-- 1 user group  344 Jun  1 12:32 some_library.c
+-rwxrwxr-x 1 user group  16K Jun  1 09:42 some_program
+
+    some_program: 16K
+    my_program: 881K
+
+We can see that my_program is significantly larger than some_program,
+with a size difference of approximately 865K (881K - 16K).
+
+
+Verify that your executable is actually static. Use ldd and file for this.
+ldd my_program
+        not a dynamic executable
+file my_program
+my_program: ELF 64-bit LSB executable, x86-64, version 1 (GNU/Linux),
+statically linked, BuildID[sha1]=39b63b64a5b9d1d5b0daca24773f9dfe273e6b9a, for GNU/Linux 3.2.0, not stripped
+
+
+    What is the difference between dynamic and static linking?
+Dynamic linking and static linking are two methods of linking libraries to a program.
+The main difference between them lies in how the libraries are included in the executable file and how they are loaded into memory at runtime.
+
+### **Static Linking**
+
+- **Definition**: Static linking involves copying all the libraries used by a program into the executable file during the compilation process.
+- **Advantages**:
+  - **Simplifies distribution**: The program can run independently without requiring additional libraries.
+  - **Faster startup**: The program can start faster because all libraries are already included.
+  - **Easier to handle and distribute**: The program can be easily packaged and distributed without worrying about library dependencies.
+  - **Less risk of breaking due to library updates**: The program is less vulnerable to library updates breaking the application.
+- **Disadvantages**:
+  - **Larger executable size**: The program becomes larger due to the inclusion of all libraries.
+  - **More memory usage**: The program uses more memory because all libraries are loaded into memory.
+  - **More difficult to update**: If a library is updated, the entire program needs to be recompiled and re-linked.
+
+### **Dynamic Linking**
+
+- **Definition**: Dynamic linking involves linking to libraries at runtime rather than during compilation.
+The operating system loads the necessary libraries into memory when the program is executed.
+- **Advantages**:
+  - **Smaller executable size**: The program is smaller because it does not include the library code. Instead, it contains references to the required libraries, which are loaded at runtime by the operating system..
+  - **Memory Efficiency**: Shared libraries reduce memory usage by allowing multiple processes to share the same library code in memory, rather than each process having its own copy.
+  - **Code Reuse**: Shared libraries enable code reuse across multiple programs, reducing the need to duplicate code and maintain multiple versions.
+  - **Easier Maintenance**: Changes to a shared library can be made once and then applied to all programs that use it, simplifying maintenance and updates.
+- **Disadvantages**:
+  - **More complex distribution**: The program requires additional libraries to be installed on the system.
+  - **Potential for compatibility issues**: Changes to libraries can cause compatibility issues if not properly handled.
+
+    When would you use dynamic linking?
+when the following are needed:
+Smaller executable size
+Memory Efficiency
+Easier Maintenance through shared libraries
+Plugins
+
+    When would you use static linking?
+when the following are necessary:
+Security is crucial: Static linking ensures the program is self-contained and less vulnerable to library updates or changes.
+Control is necessary: Static linking provides full control over the program and its dependencies.
+Distribution is simple: Static linking simplifies distribution and deployment by eliminating library dependencies.
+Performance is critical: Static linking can improve performance by reducing the overhead of dynamic linking and library loading.
+
+
+    What is position independent code, and why is it useful?
+Position-independent code (PIC) is machine code that can execute properly regardless of its absolute address in memory.
+It is commonly used for shared libraries to allow them to be loaded at any location without conflicts.
+PIC is useful because it:
+    Enables shared libraries to be loaded at any address, reducing memory usage
+    Allows programs to run on systems without an MMU (memory management unit)
+    Simplifies dynamic linking and loading of libraries at runtime
+PIC achieves this by using relative addressing instead of absolute addresses,
+and indirecting function calls and data accesses through tables.
+This provides flexibility but can incur a small performance overhead compared to position-dependent code
+
+
+    What is the purpose of the LD_LIBRARY_PATH environment variable?
+The purpose of the LD_LIBRARY_PATH environment variable is to specify a list of directories where shared libraries
+should be searched for at runtime. It allows the dynamic linker to find required libraries without having to install them in the standard system directories
