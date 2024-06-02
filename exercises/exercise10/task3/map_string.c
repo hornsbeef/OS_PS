@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-        plugin_func_t plugin_func = (plugin_func_t)dlsym(handle, "map_string");
+        plugin_func_t plugin_func = (plugin_func_t) dlsym(handle, "map_string");
         if (!plugin_func) {
             fprintf(stderr, "Error finding map_string function in %s: %s\n", argv[i], dlerror());
             dlclose(handle);

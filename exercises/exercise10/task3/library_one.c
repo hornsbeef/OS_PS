@@ -1,4 +1,4 @@
-#include <ctype.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -9,14 +9,17 @@ char *map_string(char *str) {
 
     for (int i = 0; i < len; i++) {
         char c = str[i];
-        if (isalpha(c)) {
-            if (islower(c)) {
-                c = 'a' + (c - 'a' + 13) % 26;
-            } else {
-                c = 'A' + (c - 'A' + 13) % 26;
-            }
+        if (c == 'e') {
+            result[i] = 't';
+        } else if (c == 't') {
+            result[i] = 'e';
+        } else if (c == 'E') {
+            result[i] = 'T';
+        } else if (c == 'T') {
+            result[i] = 'E';
+        } else {
+            result[i] = c;
         }
-        result[i] = c;
     }
     result[len] = '\0';
     return result;

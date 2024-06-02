@@ -12,6 +12,7 @@ void check_argc(int argc) {
         exit(EXIT_FAILURE);
     }
 }
+
 long cast_to_long_with_check(char *string) {
     errno = 0;
     char *end = NULL;

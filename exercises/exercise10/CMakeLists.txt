@@ -9,4 +9,8 @@ add_executable(task1_
 add_executable(tas2_myprogram task2/my_program.c)
 
 add_executable(task3_map_string task3/map_string.c
-        task3/ceasar_chipher.c)
+        task3/ceasar_chipher.c
+        task3/xor_string.c
+        task3/reverse_string.c
+        task3/library_one.c
+        task3/library_two.c)
