@@ -46,10 +46,11 @@ int main(int argc, char *argv[]) {
         char *new_result = plugin_func(result);
         free(result);
         result = new_result;
+        printf("%s: %s\n", argv[i], new_result);
 
     }
 
-    printf("Result: %s\n", result);
+    //printf("Result: %s\n", result);
     free(result);
     return 0;
 
