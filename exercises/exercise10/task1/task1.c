@@ -16,30 +16,14 @@
 #include <stdatomic.h>
 
 #define MAX_NUMBER_OF_PLAYERS 1024
-//typedef struct{
-//    void* gameState_PTR;
-//    int player_number;      //number in the players-array
-//    pthread_t tid;
-//    atomic_bool isLowest; //
-//}player;
-//
-//typedef struct {
-//    unsigned long long starting_number_of_players;
-//    unsigned long long current_number_of_players;
-//    pthread_barrier_t barrier;
-//    //pthread_mutex_t* mutex_PTR;
-//    atomic_int roll_result[MAX_NUMBER_OF_PLAYERS];
-//    player players[MAX_NUMBER_OF_PLAYERS];
-//}game_state;
 
 typedef struct {
-    atomic_int number_of_players;
-    atomic_int number_of_players_still_playing; // * to check when only one player is left and has won
+    int number_of_players;
+    int number_of_players_still_playing; // * to check when only one player is left and has won
     pthread_barrier_t barrier;
-    atomic_int roll_result[MAX_NUMBER_OF_PLAYERS];
-    atomic_bool player_plays[MAX_NUMBER_OF_PLAYERS];
+    int roll_result[MAX_NUMBER_OF_PLAYERS];
+    bool player_plays[MAX_NUMBER_OF_PLAYERS];
     pthread_t player_tids[MAX_NUMBER_OF_PLAYERS];
-
 } game_state;
 
 void check_argc(int argc);
@@ -58,7 +42,7 @@ int main(int argc, char *argv[]) {
 
     game_state gameState;
     //memset(gameState.roll_result, -1, MAX_NUMBER_OF_PLAYERS);
-    memset(gameState.roll_result, -1, MAX_NUMBER_OF_PLAYERS* sizeof(gameState.roll_result[0]));
+    memset(gameState.roll_result, 0, MAX_NUMBER_OF_PLAYERS* sizeof(gameState.roll_result[0]));
     memset(gameState.player_tids, -1, MAX_NUMBER_OF_PLAYERS* sizeof(gameState.roll_result[0]));
     memset(gameState.player_plays, false, MAX_NUMBER_OF_PLAYERS);  //why does the compiler not complain here?
     gameState.number_of_players = cast_to_ulli_with_check(argv[1]);
@@ -148,6 +132,11 @@ void *player_funct(void *arg) {
         int ret = pthread_barrier_wait(&gameState_PTR->barrier);
         if (ret == 0) { goto nextwait; }
         else if (ret == PTHREAD_BARRIER_SERIAL_THREAD) {
+            /**
+             * "One of the players (not the main thread) determines which player(s) are eliminated. Use pthread_barrier_wait's return value for this."
+             * does not say, that it cannot be an eliminated player.
+             * therefore this approach has been chosen.
+             */
 
             //Find the highest numbers in array. && print results
             int max = 0;
@@ -161,6 +150,24 @@ void *player_funct(void *arg) {
 
             }
 //printf( "The Max is %d\n", max);
+            //TODO: implement
+            // If all remaining players roll the same number, the round is repeated until a winner has emerged.
+            //when all remaining players roll the same number -> this number is max
+            // -> when at least one remaining player does not have max -> all_the_same == false
+            // roll_result[i] != 0 makes sure, that eliminated players are ignored.
+            bool all_the_same = true;
+            for (int i = 0; i < gameState_PTR->number_of_players; ++i){
+                if(gameState_PTR->roll_result[i] != max && gameState_PTR->roll_result[i] != 0){
+                    all_the_same = false;
+                    break;
+                }
+            }
+            if(all_the_same){
+                printf("All remaining players rolled the same. Re-Rolling...\n");
+                printf("---------------------\n");
+                goto nextwait;
+            }
+
 
             //Eliminate all players with "max"
             for (int i = 0; i < gameState_PTR->number_of_players; ++i) {
