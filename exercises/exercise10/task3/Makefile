@@ -17,7 +17,9 @@ all: $(files_to_compile:%=%.c)
 	gcc -shared -o library_two.so -fvisibility=hidden library_two.c
 
 
-
-.PHONY: clean
+.PHONY: clean run
 clean:
 	-rm -f $(files_to_clean)
+
+run:
+	./map_string "Hello World" ./ceasar_chipher.so ./xor_string.so ./reverse_string.so ./library_one.so ./library_two.so ./library_two.so ./library_one.so ./reverse_string.so ./xor_string.so ./ceasar_chipher.so

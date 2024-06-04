@@ -7,10 +7,13 @@ lib: some_library.o
 my_program:
 	gcc -static -o my_program my_program.c
 
-#my_program_zid:
-#	gcc -c some_library.c -o some_library.o
-#	gcc -c my_program.c -o my_program.o
-#	gcc -o my_program my_program.o some_library.o -ldl -static
+my_program_zid:
+	$(info linked dynamically because zid does not support static linking)
+	gcc -o my_program my_program.c
+
+	#gcc -c some_library.c -o some_library.o
+	#gcc -c my_program.c -o my_program.o
+	#gcc -o my_program my_program.o some_library.o -ldl -static
 
 
 

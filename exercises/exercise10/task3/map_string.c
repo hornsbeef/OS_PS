@@ -30,20 +30,40 @@ int main(int argc, char *argv[]) {
 
     for (int i = 2; i < argc; i++) {
         void *handle = dlopen(argv[i], RTLD_LAZY);
-        if (!handle) //TODO: check if error handling is good
-        {
+        if (handle == NULL) {
             fprintf(stderr, "Error loading plugin %s: %s\n", argv[i], dlerror());
-            continue;
+            continue;   //try to keep working without the missing/bad plugin
         }
 
+        /**
+         *The correct way to distinguish an error from
+            a symbol whose value is NULL is to call dlerror(3) to clear any
+            old error conditions, then call dlsym(), and then call dlerror(3)
+            again, saving its return value into a variable, and check whether
+            this saved value is not NULL.
+         *
+         * dlerror() returns NULL if no errors have occurred since
+            initialization or since it was last called.
+         */
+
+        dlerror();
         plugin_func_t plugin_func = (plugin_func_t) dlsym(handle, "map_string");
-        if (!plugin_func) {
-            fprintf(stderr, "Error finding map_string function in %s: %s\n", argv[i], dlerror());
+        char *dlerror_return = dlerror();
+        if (dlerror_return != NULL) {
+            fprintf(stderr, "Error finding map_string function in %s: %s\n", argv[i], dlerror_return);
             dlclose(handle);
             continue;
         }
 
         char *new_result = plugin_func(result);
+
+        dlerror();
+        if (dlclose(handle) != 0)
+        {
+            fprintf(stderr, "Error loading plugin %s: %s\n", argv[i], dlerror());
+            //try to keep the program running, the frees will be done by the OS.
+        }
+
         free(result);
         result = new_result;
         printf("%s: %s\n", argv[i], new_result);
