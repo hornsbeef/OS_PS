@@ -22,6 +22,9 @@ some_library.o: some_library.c
 
 
 
-.PHONY: clean
+.PHONY: clean run
 clean:
 	-rm -f $(files_to_clean)
+
+run:
+	LD_LIBRARY_PATH=. ./some_program 10
