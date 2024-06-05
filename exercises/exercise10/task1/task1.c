@@ -126,6 +126,7 @@ void *player_funct(void *arg) {
         //do the random rolling
         if (gameState_PTR->player_plays[playerNumber] == true) {
             gameState_PTR->roll_result[playerNumber] = (rand_r((unsigned int *) &mytid) % 6) + 1;
+            // for rand_r better time(NULL) XOR pid_self()
         }
 
 //Region Barrier
