@@ -194,12 +194,17 @@ int main(int argc, char *argv[]) {
 
 //Region helperfunctions
 
+
+#define MIN_ARGS 3
+#define MAX_ARGS 3
 void check_argc(int argc) {
-    if (argc != 3) {
+    if (argc < MIN_ARGS || argc > MAX_ARGS) {
         printf("usage: ."__FILE__" <port> <username>\n");
         exit(EXIT_FAILURE);
     }
 }
+#undef MIN_ARGS
+#undef MAX_ARGS
 
 unsigned long long int cast_to_ulli_with_check(char *string) {
     errno = 0;

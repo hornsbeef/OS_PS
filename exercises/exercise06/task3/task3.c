@@ -76,6 +76,7 @@ int main(int argc, char *argv[]) {
 
     pthread_error_funct(pthread_mutex_init(&mutex_queue, &mutex_queue_attr));
 
+//CONDITION VARIABLE INIT:
 //cond_data_pushed_to_queue init:
     pthread_error_funct(pthread_cond_init(&cond_data_pushed_to_queue, NULL));
 
@@ -172,8 +173,8 @@ int main(int argc, char *argv[]) {
         pthread_error_funct(pthread_mutex_lock(&mutex_queue));
 #endif
         myqueue_push(&queue, INT_MAX);
-        pthread_mutex_unlock(&mutex_queue);
         pthread_cond_signal(&cond_data_pushed_to_queue);
+        pthread_mutex_unlock(&mutex_queue);
 
     }
 
@@ -281,7 +282,7 @@ void *pthreadStartRoutine(void *arg) {
 
 
 //cond_data_pushed_to_queue wait:
-        while (myqueue_is_empty(my_pthread_args_ptr->queue)) {             //catch for spurious wakeup!
+        while (myqueue_is_empty(my_pthread_args_ptr->queue)) {   //catch for spurious wakeup!
             pthread_error_funct(pthread_cond_wait(&cond_data_pushed_to_queue, &mutex_queue));
         }
 

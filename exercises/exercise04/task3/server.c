@@ -110,7 +110,7 @@ int main(int argc, char* argv[]) {
 
 
 
-    struct pollfd fds[argc-1];    //for poll()
+
     for (int i = 1; i < argc; ++i) {
         clients[i].argc = argc; //needed for thread
     }
@@ -128,6 +128,7 @@ int main(int argc, char* argv[]) {
 
 
     //creating all the clients data
+    struct pollfd fds[argc-1];    //for poll()
     for (int i = 1; i < argc; ++i) {
 
         strcpy(clients[i].name, argv[i]);
@@ -206,6 +207,8 @@ int main(int argc, char* argv[]) {
     while(all_clients_disconnected < (argc-1)){
 
         //wait indefinitely for events via poll:
+        //poll()  waits for one of a set of file descriptors to become ready to perform I/O.
+        //this set of fd is struct pollfd fds[]
         errno = 0;
         int events = poll(fds, argc-1, -1);
         if(events < 0 ){

@@ -135,16 +135,28 @@ int main(int argc, char *argv[]) {
 
     //initialize Ringbuffer and semaphores:
     ring_buffer_init(ring_buffer_ptr);  //initialize head and tail to 0
+
+    //typedef struct RingBuffer {
+    //    uint64_t head;
+    //    uint64_t tail;
+    //    sem_t free_space_available;
+    //    sem_t data_available;
+    //    pthread_mutex_t mutex_buffer;
+    //    pthread_mutexattr_t mutex_buffer_attr;
+    //    _Atomic uint64_t result;
+    //    uint64_t buffer[];      //must be last in struct!
+    //} RingBuffer;
     errno = 0;
     int sem_ret;
-    //sem_ret = sem_init(&(ring_buffer_ptr->free_space_available), true, buffersize - 1);
     sem_ret = sem_init(&(ring_buffer_ptr->free_space_available), true, L-1);
+    ///starting value is set to L-1 -> because there is L-1 spaces free.
     if (sem_init_error(sem_ret)) {
         shm_clean_before_exit(name, fd);
         exit(EXIT_FAILURE);
     }
     errno = 0;
     sem_ret = sem_init(&(ring_buffer_ptr->data_available), true, 0);
+    //starting value is set to 0 -> because no data has been written to the ringbuffer
     if (sem_init_error(sem_ret)) {
         sem_destroy(&(ring_buffer_ptr->free_space_available));//here the previous sem must be destroyed.
         shm_clean_before_exit(name, fd);
@@ -152,7 +164,7 @@ int main(int argc, char *argv[]) {
     }
     /*
      * If pshared is nonzero, then the semaphore is shared between
-       processes, and should be located in a region of shared memory
+     *  processes, and should be located in a region of shared memory
      */
 
     //initialize mutex:

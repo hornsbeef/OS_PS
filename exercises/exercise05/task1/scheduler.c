@@ -56,6 +56,29 @@ int main(int argc, char *argv[]) {
 
 
     //create mq_
+    //O_CREAT
+    //Create the message queue if it does not exist.  The owner
+    //        (user ID) of the message queue is set to the effective
+    //user ID of the calling process.  The group ownership
+    //(group ID) is set to the effective group ID of the calling
+    //process.
+    //
+    //O_EXCL If O_CREAT was specified in oflag, and a queue with the
+    //given name already exists, then fail with the error
+    //EEXIST.
+    //The fields of the struct mq_attr pointed to attr specify the
+    //maximum number of messages and the maximum size of messages that
+    //the queue will allow.  This structure is defined as follows:
+    //
+    //struct mq_attr {
+    //    long mq_flags;       /* Flags (ignored for mq_open()) */
+    //    long mq_maxmsg;      /* Max. # of messages on queue */
+    //    long mq_msgsize;     /* Max. message size (bytes) */
+    //    long mq_curmsgs;     /* # of messages currently in queue
+    //                                   (ignored for mq_open()) */
+    //};
+
+    //const char *mq_name = argv[1]; has been set further up...
     const int oflag = O_CREAT | O_EXCL;
     const mode_t permissions = S_IRUSR | S_IWUSR; // 600
     const struct mq_attr attr = {.mq_maxmsg = 4, .mq_msgsize = sizeof(numbers)};
@@ -69,12 +92,12 @@ int main(int argc, char *argv[]) {
 
     //open mq_
     //const mqd_t mq = mq_open(mq_name, O_RDONLY | O_NONBLOCK, 0, NULL);
+    //const char *mq_name = argv[1]; has been set further up...
     const mqd_t mq = mq_open(mq_name, O_RDONLY, 0, NULL);
 
     struct pollfd fds;
     fds.fd = mq;
     fds.events = POLLIN;
-
 
     while (!shutdown) {
 

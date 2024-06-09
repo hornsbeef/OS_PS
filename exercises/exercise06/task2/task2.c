@@ -1,4 +1,4 @@
-#define LOCK_TYPE 1
+#define LOCK_TYPE 2
 //LOCK_TYPES: mutex:
 //1 == trylock
 //2 == lock
@@ -65,8 +65,12 @@ int main(int argc, char *argv[]) {
     pthread_mutexattr_t mutex_queue_attr;
     pthread_error_funct(pthread_mutexattr_init(&mutex_queue_attr));
     pthread_error_funct(pthread_mutexattr_setpshared(&mutex_queue_attr, PTHREAD_PROCESS_SHARED));
+    //Synchronization variables that are initialized with the PTHREAD_PROCESS_SHARED process-shared attribute may be operated on by any thread in any process that has access to it.
     pthread_error_funct(pthread_mutexattr_settype(&mutex_queue_attr, PTHREAD_MUTEX_ERRORCHECK));
-
+    //PTHREAD_MUTEX_ERRORCHECK: This type of mutex provides error checking.
+    // A thread attempting to relock this mutex without first unlocking it shall return with an error.
+    // A thread attempting to unlock a mutex which another thread has locked shall return with an error.
+    // A thread attempting to unlock an unlocked mutex shall return with an error.
     pthread_error_funct(pthread_mutex_init(&mutex_queue, &mutex_queue_attr));
 
 //pthread creation loop with relevant info
@@ -243,17 +247,14 @@ void *pthreadStartRoutine(void *arg) {
         fprintf(stderr, "Consumer: %lld trylock successful\n", my_pthread_args_ptr->consumer_number);
 #endif
 #elif LOCK_TYPE == 2
-        int mutex_return = pthread_mutex_lock(&mutex_queue);
-        pthread_error_funct(mutex_return);
-
-
+        pthread_error_funct(pthread_mutex_lock(&mutex_queue));
 #endif
         if (myqueue_is_empty(my_pthread_args_ptr->queue)) {
 #if DEBUG > 1
             fprintf(stderr, "Consumer: %lld QUEUE EMPTY\n", my_pthread_args_ptr->consumer_number);
 #endif
             pthread_mutex_unlock(&mutex_queue);
-            continue;
+            continue;   //MUST NOT FORGET!
         }
 
         int temp = myqueue_pop(my_pthread_args_ptr->queue);

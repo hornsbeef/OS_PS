@@ -57,18 +57,22 @@ int main(int argc, char *argv[]) {
     // It contains a circular buffer and one element for the result.
 
     //shm_open()
+    //cave: no memory is allocated -> needs ftruncate
     errno = 0;
-    const char *name = "/shared_memory";
-    const int oflag = O_RDWR | O_CREAT | O_EXCL;
-    const mode_t permission = S_IRUSR | S_IWUSR;
-    int fd = shm_open(name, oflag, permission);
-    if (fd < 0) {
+    const char *name = "/shared_memory";        // for portability reasons should start with "/"
+    const int oflag = O_RDWR | O_CREAT | O_EXCL;    //oflag for acces type & if create or opening
+    const mode_t permission = S_IRUSR | S_IWUSR;    //mode_t for permissions
+    int fd = shm_open(name, oflag, permission); //return_value is file descriptor to the shared memory.
+    if (fd < 0) // -1 indicates error
+    {
         perror("shm_open");
         shm_clean_before_exit(name, fd);
         exit(EXIT_FAILURE);
     }
 
     //ftruncate()
+    //"truncates" a file (referred to by fd) to a given size.
+    //must be used to actually allocate memory for the shared memory object
     const size_t shared_mem_size = sizeof(RingBuffer) + buffersize;
     errno = 0;
     int ftrunc_error = ftruncate(fd, shared_mem_size);
@@ -78,12 +82,25 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    //mmap()    //why here on slides char* instead of void* ? -> because char is exactly size of 1 byte.
+    //mmap()
+    //maps files or devices into process memory
+    //must be used to actually map the shared memory object so it can be used
+    //why here on slides char* instead of void* ? -> because char is exactly size of 1 byte.
     //here more useful for me: RingBuffer
     /*
      * After the mmap() call has returned, the file descriptor, fd, can
        be closed immediately without invalidating the mapping. https://man7.org/linux/man-pages/man2/mmap.2.html
      */
+    //addr can be NULL -> lets kernel choose where shm should be mapped -> is default!
+    //prot  describes the desired memory protection of the mapping (and must not conflict with the open mode of the file).
+    //       It is either PROT_NONE or the bitwise OR of one or more of the
+    //       following flags:
+    //       PROT_EXEC: pages may be executed.
+    //       PROT_READ: Pages may be read.
+    //       PROT_WRITE: Pages may be written.
+    //       PROT_NONE: Pages may not be accessed.
+    //flags: should be MAP_SHARED for shm
+    //fd is file descriptor of shared memory
     errno = 0;
     RingBuffer *todo_ptr = mmap(NULL, shared_mem_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (todo_ptr == MAP_FAILED) {
