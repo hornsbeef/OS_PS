@@ -217,7 +217,16 @@ void *pthreadStartRoutine(void *arg) {
                 }
 
 
+            } else   //food source has been harvested.
+            {
+                if (food_source != NULL) //if food_source == NULL something went wrong
+                {
+                    printf("Bee %llu could not find nectar at position (%llu,%llu).\n", bee_PTR->bee_name,
+                           food_source->heigt, food_source->width);
+                }
             }
+
+
             work_flower = false;
             //return home;
         }
