@@ -374,6 +374,10 @@ int main(int argc, char *argv[]) {
         printf("The beehive was NOT destroyed.\n   ");
     }
 
+    while(myqueue_is_empty(beehive.queue) == false){
+        myqueue_pop(beehive.queue); //getting rid of all still stored jobs
+    }
 
 
+    return(EXIT_SUCCESS);
 }
