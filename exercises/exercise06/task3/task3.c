@@ -83,10 +83,18 @@ int main(int argc, char *argv[]) {
 
 
 //pthread_create loop with relevant info
+    //struct here just for reference! -> located @ top
+    //typedef struct pthread_args {
+    //    myqueue *queue;
+    //    unsigned long long consumer_number;
+    //    int sum;
+    //    pthread_t tid;
+    //} pthread_args;
     pthread_args arg_struct_array[num_consumers];
     for (unsigned long long i = 0; i < num_consumers; i++) {
         arg_struct_array[i].queue = &queue;
         arg_struct_array[i].consumer_number = i;
+        //set other fields that are required!
         pthread_error_funct(
                 pthread_create(&(arg_struct_array[i].tid), NULL, &pthreadStartRoutine, &arg_struct_array[i]));
     }

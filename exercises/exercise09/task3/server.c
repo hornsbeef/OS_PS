@@ -111,6 +111,7 @@ int main(int argc, char *argv[]) {
 
     //End
 
+    // * socket() creates an endpoint for communication and returns a descriptor.
     errno = 0;
     int sockfd = socket(PF_INET, SOCK_STREAM, 0);   //protocol: 0 for default for this , 6 for tcp
     if (sockfd < 0) {
@@ -119,6 +120,7 @@ int main(int argc, char *argv[]) {
     }
 
     // * safe to Pieces!
+    // * this allows for a socket to be bound to an adress that is already in use -> .
     int opt = 1; // * set SO_REUSEADDR to value of opt
     if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
         perror("Setsockopt failed");
@@ -126,6 +128,13 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    /**
+     * When a socket is created with socket(2),
+     * it exists in a name space (address family) but has no address assigned to it.
+     * bind() assigns the address specified by addr to the socket referred to by the file descriptor sockfd.
+     * addrlen specifies the size, in bytes, of the address structure pointed to by addr.
+     * Traditionally, this operation is called "assigning a name to a socket".
+     */
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -138,11 +147,28 @@ int main(int argc, char *argv[]) {
         exit(return_param);
     }
 
+
     if(listen(sockfd, 1) == -1){
         perror("Listen");
         close(sockfd);
         exit(EXIT_FAILURE);
     }
+    /**
+     *listen() marks the socket referred to by sockfd as a passive
+       socket, that is, as a socket that will be used to accept incoming
+       connection requests using accept(2).
+
+       The sockfd argument is a file descriptor that refers to a socket
+       of type SOCK_STREAM or SOCK_SEQPACKET.
+
+       The backlog argument defines the maximum length to which the
+       queue of pending connections for sockfd may grow.  If a
+       connection request arrives when the queue is full, the client may
+       receive an error with an indication of ECONNREFUSED or, if the
+       underlying protocol supports retransmission, the request may be
+       ignored so that a later reattempt at connection succeeds.
+
+     */
 
 //Region threadStruct
     thread_struct_t threadStruct;
@@ -256,7 +282,7 @@ void *listener_thread(void *arg) {
     while (interrupted == 0) //version with "signal handler flag" -> gets stuck without pthread_cancel
     {
         errno = 0;
-        if ((conn_sockfd = accept(listener_sockfd, NULL, NULL)) == -1) // without pthread_cancel -> stuck here!
+        if ((conn_sockfd = accept(listener_sockfd, NULL, NULL)) == -1)
         {
             perror("Accept");
             // ? how to handle failure - cleanup
@@ -312,8 +338,6 @@ void *listener_thread(void *arg) {
 
     //TODO: with pthread_cancel:
     // -> see pthread_cleanup_push!!
-
-
 
     close(listener_sockfd);
     pthread_exit(NULL);

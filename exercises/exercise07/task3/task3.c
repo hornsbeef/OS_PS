@@ -5,12 +5,12 @@
 #include "roulette.h"
 
 //for testing:
-//#define THREAD_POOL
+#define THREAD_POOL
 //end for testing
 
-#if ((!defined(THREAD_PER_JOB) && !defined(THREAD_POOL)) || (defined(THREAD_PER_JOB) && defined(THREAD_POOL)))
-	#error "Define exactly one of THREAD_PER_JOB, THREAD_POOL" // this causes an error
-#endif
+//#if ((!defined(THREAD_PER_JOB) && !defined(THREAD_POOL)) || (defined(THREAD_PER_JOB) && defined(THREAD_POOL)))
+//	#error "Define exactly one of THREAD_PER_JOB, THREAD_POOL" // this causes an error
+//#endif
 
 #ifdef THREAD_POOL
 	#include "thread_pool.h"
@@ -79,8 +79,6 @@ int main(void) {
 	uint64_t min_result = UINT64_MAX;
 	uint64_t max_result = 0;
 	for (size_t i = 0; i < NUM_EVALUATIONS; i++) {
-        //testing:
-        //fprintf(stderr, "i= %zu\n", i);
 
 #ifdef THREAD_POOL
 		pool_await(job_ids[i]);

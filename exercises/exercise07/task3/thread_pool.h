@@ -35,7 +35,8 @@ typedef struct {
     bool completed;
     thread_pool* pool;
 } job_status;
-typedef job_status* job_id;    // https://www.perplexity.ai/search/ifndef-THREADPOOLH-define-zX4YeosJQUKWvMjOcMaSrg
+typedef job_status* job_id;    //makes job_id a PTR to the job_status Struct
+// https://www.perplexity.ai/search/ifndef-THREADPOOLH-define-zX4YeosJQUKWvMjOcMaSrg
 
 
 /***
